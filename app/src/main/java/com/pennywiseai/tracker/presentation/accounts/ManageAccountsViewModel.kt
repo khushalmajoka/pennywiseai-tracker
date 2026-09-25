@@ -752,6 +752,15 @@ class ManageAccountsViewModel @Inject constructor(
         _pendingProfileReassign.value = null
     }
 
+    /**
+     * Whether [bankName]/[accountLast4] uses the opening+recompute manual balance
+     * model. An account with an opening row can't be safely reclassified to/from
+     * LOAN — its opening row's own liability status, not the latest row's, is what
+     * [AccountBalanceRepository.isManualAccount] keys future recomputes on (#792).
+     */
+    suspend fun isManualAccount(bankName: String, accountLast4: String): Boolean =
+        accountBalanceRepository.isManualAccount(bankName, accountLast4)
+
     fun editAccount(
         oldBankName: String,
         accountLast4: String,
@@ -759,7 +768,8 @@ class ManageAccountsViewModel @Inject constructor(
         newBalance: BigDecimal,
         newCreditLimit: BigDecimal?,
         isCreditCard: Boolean,
-        newCurrency: String? = null
+        newCurrency: String? = null,
+        newAccountType: AccountType? = null
     ) {
         viewModelScope.launch {
             try {
@@ -811,7 +821,7 @@ class ManageAccountsViewModel @Inject constructor(
                             // Honor an explicit currency edit; otherwise resolve so stamping
                             // MANUAL doesn't flip an SMS-tracked non-INR account to stored INR.
                             currency = resolvedCurrency,
-                            accountType = latestBalance?.accountType,
+                            accountType = newAccountType?.toDatabaseString() ?: latestBalance?.accountType,
                             profileId = latestBalance?.profileId ?: ProfileEntity.PERSONAL_ID,
                             alias = latestBalance?.alias,
                             lowBalanceThreshold = latestBalance?.lowBalanceThreshold,

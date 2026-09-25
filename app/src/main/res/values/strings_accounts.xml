@@ -138,6 +138,9 @@
     <string name="manage_accounts_section_bank">Bank Accounts</string>
     <string name="manage_accounts_section_unlinked_cards">Unlinked Cards</string>
     <string name="manage_accounts_section_credit_cards">Credit Cards</string>
+    <string name="manage_accounts_section_loans">Loan Accounts</string>
+    <string name="manage_accounts_loan_toggle_label">Loan account</string>
+    <string name="manage_accounts_loan_toggle_description">Treat this account\'s balance as money owed, not held — excluded from spendable balance.</string>
     <string name="manage_accounts_hidden_header">Ignored Accounts (%1$d)</string>
     <string name="manage_accounts_reassign_title">Move existing transactions?</string>
     <plurals name="manage_accounts_reassign_message">
