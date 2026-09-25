@@ -21,6 +21,8 @@ import com.pennywiseai.tracker.data.manager.InAppReviewManager
 import com.pennywiseai.tracker.data.currency.CurrencyConversionService
 import com.pennywiseai.tracker.data.preferences.UserPreferencesRepository
 import com.pennywiseai.tracker.domain.model.BudgetCycle
+import com.pennywiseai.tracker.domain.model.getAccountType
+import com.pennywiseai.tracker.presentation.accounts.AccountType
 import com.pennywiseai.tracker.presentation.common.buildProfileAccountKeys
 import com.pennywiseai.tracker.presentation.common.filterAccountsByProfile
 import com.pennywiseai.tracker.presentation.common.filterTransactionsByProfile
@@ -463,14 +465,21 @@ class HomeViewModel @Inject constructor(
 
                 // Filter out hidden accounts and apply business filter
                 val balances = filterVisibleBalances(allBalances, hiddenAccounts)
-                // Separate credit cards from regular accounts (hide zero balance accounts)
-                val rawRegularAccounts = balances.filter { !it.isCreditCard && it.balance != BigDecimal.ZERO }
+                // Separate credit cards and loans (liabilities) from regular accounts
+                // (hide zero balance accounts). Loans get their own bucket rather than
+                // joining creditCards: creditLimit/available-credit math below is
+                // Credit-Card-specific and doesn't apply to a loan (#792).
+                val rawRegularAccounts = balances.filter {
+                    !it.isCreditCard && it.getAccountType() != AccountType.LOAN && it.balance != BigDecimal.ZERO
+                }
                 val rawCreditCards = balances.filter { it.isCreditCard }
+                val rawLoanAccounts = balances.filter { it.getAccountType() == AccountType.LOAN }
 
                 // Check if we have multiple currencies and refresh exchange rates if needed
                 val accountCurrencies = rawRegularAccounts.map { it.currency }.distinct()
                 val creditCardCurrencies = rawCreditCards.map { it.currency }.distinct()
-                val allAccountCurrencies = (accountCurrencies + creditCardCurrencies).distinct()
+                val loanAccountCurrencies = rawLoanAccounts.map { it.currency }.distinct()
+                val allAccountCurrencies = (accountCurrencies + creditCardCurrencies + loanAccountCurrencies).distinct()
 
                 if (allAccountCurrencies.size > 1 && allAccountCurrencies.isNotEmpty()) {
                     currencyConversionService.refreshExchangeRatesForAccount(allAccountCurrencies)
@@ -481,6 +490,7 @@ class HomeViewModel @Inject constructor(
                 // Pre-convert individual account entities when unified mode is on
                 val regularAccounts = convertAccountEntities(rawRegularAccounts, selectedCurrency, isUnified)
                 val creditCards = convertAccountEntities(rawCreditCards, selectedCurrency, isUnified)
+                val loanAccounts = convertAccountEntities(rawLoanAccounts, selectedCurrency, isUnified)
 
                 // regularAccounts/creditCards are already pre-converted by
                 // convertAccountEntities (currency == selectedCurrency for everything it
@@ -518,6 +528,7 @@ class HomeViewModel @Inject constructor(
                 _uiState.value = _uiState.value.copy(
                     accountBalances = regularAccounts,  // Pre-converted in unified mode
                     creditCards = creditCards,           // Pre-converted in unified mode
+                    loanAccounts = loanAccounts,         // Pre-converted in unified mode
                     totalBalance = totalBalanceInSelectedCurrency,
                     totalAvailableCredit = totalAvailableCreditInSelectedCurrency,
                     availableCurrencies = updatedAvailableCurrencies,
@@ -959,8 +970,11 @@ class HomeViewModel @Inject constructor(
 
             val visibleBalances = filterVisibleBalances(allBalances, hiddenAccounts)
 
-            val rawRegularAccounts = visibleBalances.filter { !it.isCreditCard && it.balance != BigDecimal.ZERO }
+            val rawRegularAccounts = visibleBalances.filter {
+                !it.isCreditCard && it.getAccountType() != AccountType.LOAN && it.balance != BigDecimal.ZERO
+            }
             val rawCreditCards = visibleBalances.filter { it.isCreditCard }
+            val rawLoanAccounts = visibleBalances.filter { it.getAccountType() == AccountType.LOAN }
 
             val selectedCurrency = _uiState.value.selectedCurrency
             val isUnified = _uiState.value.isUnifiedMode
@@ -968,6 +982,7 @@ class HomeViewModel @Inject constructor(
             // Pre-convert individual account entities when unified mode is on
             val regularAccounts = convertAccountEntities(rawRegularAccounts, selectedCurrency, isUnified)
             val creditCards = convertAccountEntities(rawCreditCards, selectedCurrency, isUnified)
+            val loanAccounts = convertAccountEntities(rawLoanAccounts, selectedCurrency, isUnified)
 
             // Entities are pre-converted by convertAccountEntities, so just sum;
             // anything still foreign is one we couldn't get a rate for (raw fallback).
@@ -986,6 +1001,7 @@ class HomeViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(
                 accountBalances = regularAccounts,
                 creditCards = creditCards,
+                loanAccounts = loanAccounts,
                 totalBalance = totalBalance,
                 totalAvailableCredit = totalAvailableCredit,
                 isBalanceReady = true,
@@ -1066,12 +1082,16 @@ class HomeViewModel @Inject constructor(
             val hiddenAccounts = sharedPrefs.getStringSet("hidden_accounts", emptySet()) ?: emptySet()
 
             val balances = filterVisibleBalances(allBalances, hiddenAccounts)
-            val rawRegularAccounts = balances.filter { !it.isCreditCard && it.balance != BigDecimal.ZERO }
+            val rawRegularAccounts = balances.filter {
+                !it.isCreditCard && it.getAccountType() != AccountType.LOAN && it.balance != BigDecimal.ZERO
+            }
             val rawCreditCards = balances.filter { it.isCreditCard }
+            val rawLoanAccounts = balances.filter { it.getAccountType() == AccountType.LOAN }
 
             val accountCurrencies = rawRegularAccounts.map { it.currency }.distinct()
             val creditCardCurrencies = rawCreditCards.map { it.currency }.distinct()
-            val allAccountCurrencies = (accountCurrencies + creditCardCurrencies).distinct()
+            val loanAccountCurrencies = rawLoanAccounts.map { it.currency }.distinct()
+            val allAccountCurrencies = (accountCurrencies + creditCardCurrencies + loanAccountCurrencies).distinct()
 
             if (allAccountCurrencies.size > 1 && allAccountCurrencies.isNotEmpty()) {
                 currencyConversionService.refreshExchangeRatesForAccount(allAccountCurrencies)
@@ -1083,6 +1103,7 @@ class HomeViewModel @Inject constructor(
             // Pre-convert individual account entities when unified mode is on
             val regularAccounts = convertAccountEntities(rawRegularAccounts, selectedCurrency, isUnified)
             val creditCards = convertAccountEntities(rawCreditCards, selectedCurrency, isUnified)
+            val loanAccounts = convertAccountEntities(rawLoanAccounts, selectedCurrency, isUnified)
 
             // Entities are pre-converted by convertAccountEntities, so just sum;
             // anything still foreign is one we couldn't get a rate for (raw fallback).
@@ -1102,6 +1123,7 @@ class HomeViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(
                 accountBalances = regularAccounts,
                 creditCards = creditCards,
+                loanAccounts = loanAccounts,
                 totalBalance = totalBalanceInSelectedCurrency,
                 totalAvailableCredit = totalAvailableCreditInSelectedCurrency,
                 isBalanceReady = true,
@@ -1663,6 +1685,7 @@ data class HomeUiState(
     val budgetSummary: BudgetOverallSummary? = null,
     val accountBalances: List<AccountBalanceEntity> = emptyList(),
     val creditCards: List<AccountBalanceEntity> = emptyList(),
+    val loanAccounts: List<AccountBalanceEntity> = emptyList(),
     val totalBalance: BigDecimal = BigDecimal.ZERO,
     val totalAvailableCredit: BigDecimal = BigDecimal.ZERO,
     val selectedCurrency: String = "INR",

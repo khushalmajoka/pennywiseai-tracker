@@ -150,6 +150,7 @@
     <!-- Account carousel -->
     <string name="account_card_type_credit">Credit</string>
     <string name="account_card_type_savings">Savings</string>
+    <string name="account_card_type_loan">Loan</string>
     <string name="account_card_low_balance">Low balance</string>
     <string name="account_card_outstanding">Outstanding</string>
     <string name="account_card_balance">Balance</string>

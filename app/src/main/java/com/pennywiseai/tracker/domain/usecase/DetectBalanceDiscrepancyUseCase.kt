@@ -4,6 +4,7 @@ import com.pennywiseai.tracker.data.database.entity.TransactionEntity
 import com.pennywiseai.tracker.data.database.entity.TransactionType
 import com.pennywiseai.tracker.data.repository.AccountBalanceRepository
 import com.pennywiseai.tracker.data.repository.TransactionRepository
+import com.pennywiseai.tracker.domain.model.isLiability
 import com.pennywiseai.tracker.utils.BalanceDiscrepancy
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject
@@ -21,16 +22,16 @@ class DetectBalanceDiscrepancyUseCase @Inject constructor(
         val reported = tx.balanceAfter ?: return null
         val bank = tx.bankName ?: return null
         val last4 = tx.accountNumber ?: return null
-        // Transfers/credit-card legs don't move a debit balance in a way the
+        // Transfers/credit-card/loan legs don't move a debit balance in a way the
         // calculator can predict; skip rather than cry wolf.
         if (tx.transactionType == TransactionType.TRANSFER || tx.transactionType == TransactionType.CREDIT) return null
 
         val history = accountBalanceRepository.getBalanceHistoryForAccount(bank, last4) // newest first
         val own = history.firstOrNull { it.transactionId == tx.id }
-        if (own?.isCreditCard == true) return null
+        if (own?.isLiability() == true) return null
         val at = own?.timestamp ?: tx.dateTime
         val previous = history.firstOrNull { it.id != own?.id && it.timestamp < at } ?: return null
-        if (previous.isCreditCard || previous.currency != tx.currency) return null
+        if (previous.isLiability() || previous.currency != tx.currency) return null
 
         // A transfer row only records the FROM bank, so an incoming leg can't be
         // tied to a bank. If another bank has an account with the same last four,

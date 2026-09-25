@@ -95,6 +95,7 @@
     <string name="merge_accounts_selected">Selected</string>
     <!-- Tag appended to a credit-card account row ("··1234 · INR · Credit") -->
     <string name="merge_accounts_credit_tag">Credit</string>
+    <string name="merge_accounts_loan_tag">Loan</string>
 
     <!-- ══ Manage accounts: status messages ══ -->
     <string name="manage_accounts_msg_account_exists">Account already exists</string>

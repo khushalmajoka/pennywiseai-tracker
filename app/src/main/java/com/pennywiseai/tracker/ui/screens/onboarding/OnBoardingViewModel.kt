@@ -11,6 +11,7 @@ import androidx.work.WorkManager
 import com.pennywiseai.tracker.data.database.entity.AccountBalanceEntity
 import com.pennywiseai.tracker.data.manager.SmsScanManager
 import com.pennywiseai.tracker.data.preferences.UserPreferencesRepository
+import com.pennywiseai.tracker.domain.model.isLiability
 import com.pennywiseai.tracker.ui.components.AvatarHelper
 import com.pennywiseai.tracker.data.repository.AccountBalanceRepository
 import com.pennywiseai.tracker.utils.CurrencyFormatter
@@ -242,7 +243,7 @@ class OnBoardingViewModel @Inject constructor(
     fun loadAccounts() {
         viewModelScope.launch {
             val accounts = accountBalanceRepository.getAllLatestBalances().first()
-                .filter { !it.isCreditCard && it.balance != BigDecimal.ZERO }
+                .filter { !it.isLiability() && it.balance != BigDecimal.ZERO }
             _uiState.update { state ->
                 state.copy(
                     accounts = accounts,

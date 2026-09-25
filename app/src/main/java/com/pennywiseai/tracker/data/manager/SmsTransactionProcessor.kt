@@ -13,6 +13,7 @@ import com.pennywiseai.tracker.data.database.entity.TransactionEntity
 import com.pennywiseai.tracker.data.database.entity.TransactionType
 import com.pennywiseai.tracker.data.mapper.toEntity
 import com.pennywiseai.tracker.data.mapper.toEntityType
+import com.pennywiseai.tracker.domain.model.isLiability
 import com.pennywiseai.tracker.utils.BalanceCalculator
 import com.pennywiseai.tracker.data.repository.AccountBalanceRepository
 import com.pennywiseai.tracker.data.repository.CardRepository
@@ -330,10 +331,14 @@ class SmsTransactionProcessor @Inject constructor(
             )
 
             val resolvedIsCreditCard = isCreditCard || (existingAccount?.isCreditCard ?: false)
+            // A LOAN account moves like a credit card (credit reduces owed, debit
+            // increases it) but must NOT be stored as isCreditCard=true — that flag
+            // drives Credit-Card-only UI (limit, statement day). Widen only the math input.
+            val isLiabilityForMath = resolvedIsCreditCard || existingAccount?.isLiability() == true
 
             val newBalance = BalanceCalculator.calculateNewBalance(
                 explicitBalance = parsedTransaction.balance,
-                isCreditCard = resolvedIsCreditCard,
+                isCreditCard = isLiabilityForMath,
                 transactionType = parsedTransaction.type.toEntityType(),
                 transactionAmount = parsedTransaction.amount,
                 currentBalance = existingAccount?.balance

@@ -12,6 +12,7 @@ import com.pennywiseai.tracker.data.database.entity.CardType
 import com.pennywiseai.tracker.data.database.entity.ProfileEntity
 import com.pennywiseai.tracker.data.repository.AccountBalanceRepository
 import com.pennywiseai.tracker.data.repository.CardRepository
+import com.pennywiseai.tracker.domain.model.isLiability
 import com.pennywiseai.tracker.domain.model.toDatabaseString
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -52,7 +53,8 @@ enum class AccountType {
     SAVINGS,
     CURRENT,
     CREDIT,
-    CASH
+    CASH,
+    LOAN
 }
 
 data class PendingProfileReassign(
@@ -239,8 +241,9 @@ class ManageAccountsViewModel @Inject constructor(
                 currency = state.currency,
                 sourceType = "MANUAL"
             )
-            if (isCredit) {
-                // Credit cards aren't recompute-managed — single snapshot as before.
+            if (state.accountType.isLiability()) {
+                // Credit cards and loans aren't recompute-managed — single snapshot
+                // as before (their balance is outstanding owed, not opening + Σtxns).
                 accountBalanceRepository.insertBalance(template)
             } else {
                 // Cash/regular manual account: seed an OPENING anchor + current row so
@@ -599,7 +602,7 @@ class ManageAccountsViewModel @Inject constructor(
                     }
                     return@launch
                 }
-                if (source.isCreditCard != target.isCreditCard) {
+                if (source.isLiability() != target.isLiability()) {
                     _uiState.update {
                         it.copy(errorMessage = UiText.Res(R.string.manage_accounts_msg_merge_card_mismatch))
                     }

@@ -38,6 +38,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.pennywiseai.tracker.data.database.entity.AccountBalanceEntity
+import com.pennywiseai.tracker.domain.model.getAccountType
+import com.pennywiseai.tracker.domain.model.isLiability
+import com.pennywiseai.tracker.presentation.accounts.AccountType
 import com.pennywiseai.tracker.ui.components.BrandIcon
 import com.pennywiseai.tracker.ui.theme.Dimensions
 import com.pennywiseai.tracker.ui.theme.Spacing
@@ -52,6 +55,7 @@ import dev.chrisbanes.haze.hazeEffect
 fun AccountCarousel(
     bankAccounts: List<AccountBalanceEntity>,
     creditCards: List<AccountBalanceEntity>,
+    loanAccounts: List<AccountBalanceEntity> = emptyList(),
     onAccountClick: (bankName: String, accountLast4: String) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier,
     isUnifiedMode: Boolean = false,
@@ -59,7 +63,7 @@ fun AccountCarousel(
     blurEffects: Boolean = false,
     hazeState: HazeState? = null
 ) {
-    val allAccounts = bankAccounts + creditCards
+    val allAccounts = bankAccounts + creditCards + loanAccounts
 
     if (allAccounts.isEmpty()) return
 
@@ -67,7 +71,6 @@ fun AccountCarousel(
         val account = allAccounts.first()
         AccountCarouselCard(
             account = account,
-            isCreditCard = creditCards.contains(account),
             onClick = { onAccountClick(account.bankName, account.accountLast4) },
             modifier = modifier.fillMaxWidth(),
             isUnifiedMode = isUnifiedMode,
@@ -87,7 +90,6 @@ fun AccountCarousel(
             val account = allAccounts[page]
             AccountCarouselCard(
                 account = account,
-                isCreditCard = creditCards.contains(account),
                 onClick = { onAccountClick(account.bankName, account.accountLast4) },
                 modifier = Modifier.fillMaxWidth(),
                 isUnifiedMode = isUnifiedMode,
@@ -102,7 +104,6 @@ fun AccountCarousel(
 @Composable
 private fun AccountCarouselCard(
     account: AccountBalanceEntity,
-    isCreditCard: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     isUnifiedMode: Boolean = false,
@@ -111,9 +112,11 @@ private fun AccountCarouselCard(
     hazeState: HazeState? = null
 ) {
     var isAmountHidden by remember { mutableStateOf(true) }
-    // Low-balance alert: tint the home card red when a non-credit account's balance
+    val accountType = account.getAccountType()
+    val isLiability = accountType.isLiability()
+    // Low-balance alert: tint the home card red when a non-liability account's balance
     // is at or below its user-set threshold (matches Manage Accounts). #509
-    val isLowBalance = !isCreditCard &&
+    val isLowBalance = !isLiability &&
         account.lowBalanceThreshold != null &&
         account.balance <= account.lowBalanceThreshold
     val containerColor = when {
@@ -188,7 +191,11 @@ private fun AccountCarouselCard(
                 color = MaterialTheme.colorScheme.secondaryContainer
             ) {
                 Text(
-                    text = if (isCreditCard) stringResource(R.string.account_card_type_credit) else stringResource(R.string.account_card_type_savings),
+                    text = when (accountType) {
+                        AccountType.CREDIT -> stringResource(R.string.account_card_type_credit)
+                        AccountType.LOAN -> stringResource(R.string.account_card_type_loan)
+                        AccountType.SAVINGS, AccountType.CURRENT, AccountType.CASH -> stringResource(R.string.account_card_type_savings)
+                    },
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSecondaryContainer,
                     fontWeight = FontWeight.Medium,
@@ -208,7 +215,7 @@ private fun AccountCarouselCard(
             Text(
                 text = when {
                     isLowBalance -> stringResource(R.string.account_card_low_balance)
-                    isCreditCard -> stringResource(R.string.account_card_outstanding)
+                    isLiability -> stringResource(R.string.account_card_outstanding)
                     else -> stringResource(R.string.account_card_balance)
                 },
                 style = MaterialTheme.typography.labelSmall,

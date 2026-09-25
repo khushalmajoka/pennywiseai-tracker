@@ -8,6 +8,7 @@ import com.pennywiseai.tracker.data.database.entity.AccountBalanceEntity
 import com.pennywiseai.tracker.data.database.entity.ProfileEntity
 import com.pennywiseai.tracker.data.database.entity.TransactionEntity
 import com.pennywiseai.tracker.data.database.entity.TransactionType
+import com.pennywiseai.tracker.domain.model.isLiability
 import com.pennywiseai.tracker.utils.BalanceCalculator
 import kotlinx.coroutines.flow.Flow
 import java.math.BigDecimal
@@ -273,9 +274,9 @@ open class AccountBalanceRepository @Inject constructor(
                     val latest = getLatestBalance(bank, acct)
                     if (latest != null) {
                         val net = BalanceCalculator.signedBalanceEffect(
-                            latest.isCreditCard, updated!!.transactionType, updated.amount
+                            latest.isLiability(), updated!!.transactionType, updated.amount
                         ) - BalanceCalculator.signedBalanceEffect(
-                            latest.isCreditCard, original!!.transactionType, original.amount
+                            latest.isLiability(), original!!.transactionType, original.amount
                         )
                         if (net.signum() != 0) {
                             insertBalanceDelta(bank, acct, net, LocalDateTime.now(), updated.id)
@@ -339,7 +340,7 @@ open class AccountBalanceRepository @Inject constructor(
         val currentAccount = getLatestBalance(bankName, accountLast4) ?: return
         // Credit-card aware (#636): a purchase on a card must *raise* its
         // outstanding, which the old debit-only formula got backwards.
-        val effect = BalanceCalculator.signedBalanceEffect(currentAccount.isCreditCard, type, amount)
+        val effect = BalanceCalculator.signedBalanceEffect(currentAccount.isLiability(), type, amount)
         if (effect.signum() == 0) return
         insertBalance(
             currentAccount.copy(
@@ -428,7 +429,7 @@ open class AccountBalanceRepository @Inject constructor(
                 recomputeManualBalance(fromBankName, fromLast4)
             } else {
                 getLatestBalance(fromBankName, fromLast4)?.let { latest ->
-                    val effect = BalanceCalculator.transferLegEffect(latest.isCreditCard, incoming = false, transaction.amount)
+                    val effect = BalanceCalculator.transferLegEffect(latest.isLiability(), incoming = false, transaction.amount)
                     // now() not dateTime: a back-dated leg must still postdate
                     // the latest row to become the visible balance.
                     insertBalanceDelta(fromBankName, fromLast4, effect, LocalDateTime.now(), rowId)
@@ -439,7 +440,7 @@ open class AccountBalanceRepository @Inject constructor(
                 recomputeManualBalance(toBankName, toLast4)
             } else {
                 getLatestBalance(toBankName, toLast4)?.let { latest ->
-                    val effect = BalanceCalculator.transferLegEffect(latest.isCreditCard, incoming = true, transaction.amount)
+                    val effect = BalanceCalculator.transferLegEffect(latest.isLiability(), incoming = true, transaction.amount)
                     insertBalanceDelta(toBankName, toLast4, effect, LocalDateTime.now(), rowId)
                 }
             }
@@ -511,7 +512,7 @@ open class AccountBalanceRepository @Inject constructor(
         val (bank, acct) = key
         if (isManualAccount(bank, acct)) return
         val latest = getLatestBalance(bank, acct) ?: return
-        var effect = BalanceCalculator.signedBalanceEffect(latest.isCreditCard, type, amount)
+        var effect = BalanceCalculator.signedBalanceEffect(latest.isLiability(), type, amount)
         if (revert) effect = effect.negate()
         if (effect.signum() == 0) return
         insertBalanceDelta(bank, acct, effect, LocalDateTime.now(), transactionId)
@@ -539,7 +540,7 @@ open class AccountBalanceRepository @Inject constructor(
             recomputeManualBalance(latest.bankName, latest.accountLast4)
             return
         }
-        var effect = BalanceCalculator.transferLegEffect(latest.isCreditCard, incoming, amount)
+        var effect = BalanceCalculator.transferLegEffect(latest.isLiability(), incoming, amount)
         if (revert) effect = effect.negate()
         if (effect.signum() == 0) return
         accountBalanceDao.insertBalance(
@@ -598,11 +599,11 @@ open class AccountBalanceRepository @Inject constructor(
      * SMS-tracked accounts never match.
      */
     suspend fun isManualAccount(bankName: String, accountLast4: String): Boolean {
-        // Credit cards are excluded — their balance is outstanding owed (spending
-        // increases it), which the income-positive recompute would get backwards.
-        accountBalanceDao.getOpeningRow(bankName, accountLast4)?.let { return !it.isCreditCard }
+        // Credit cards and loans are excluded — their balance is outstanding owed
+        // (spending increases it), which the income-positive recompute would get backwards.
+        accountBalanceDao.getOpeningRow(bankName, accountLast4)?.let { return !it.isLiability() }
         val latest = accountBalanceDao.getLatestBalance(bankName, accountLast4) ?: return false
-        if (latest.sourceType != SOURCE_MANUAL || latest.isCreditCard) return false
+        if (latest.sourceType != SOURCE_MANUAL || latest.isLiability()) return false
         // Legacy bridge for accounts created before the OPENING model: only treat them
         // as manual if they have no SMS-sourced history. Without this, an SMS-tracked
         // account that merely had a one-off "Update balance" override (latest row MANUAL)

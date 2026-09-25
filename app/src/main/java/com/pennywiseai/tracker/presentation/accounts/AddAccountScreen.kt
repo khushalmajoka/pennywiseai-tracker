@@ -171,6 +171,7 @@ fun AddAccountScreen(
                                 AccountType.SAVINGS, AccountType.CURRENT -> Icons.Default.AccountBalance
                                 AccountType.CREDIT -> Icons.Default.CreditCard
                                 AccountType.CASH -> Icons.Default.Money
+                                AccountType.LOAN -> Icons.Default.RequestQuote
                             },
                             contentDescription = null
                         )
@@ -200,6 +201,7 @@ fun AddAccountScreen(
                                         AccountType.SAVINGS, AccountType.CURRENT -> Icons.Default.AccountBalance
                                         AccountType.CREDIT -> Icons.Default.CreditCard
                                         AccountType.CASH -> Icons.Default.Money
+                                        AccountType.LOAN -> Icons.Default.RequestQuote
                                     },
                                     contentDescription = null
                                 )

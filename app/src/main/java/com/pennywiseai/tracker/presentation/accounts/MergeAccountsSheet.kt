@@ -23,6 +23,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import com.pennywiseai.tracker.domain.model.getAccountType
+import com.pennywiseai.tracker.domain.model.isLiability
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -252,6 +254,7 @@ private fun AccountPickerRow(
                     fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
                 )
                 val creditTag = stringResource(R.string.merge_accounts_credit_tag)
+                val loanTag = stringResource(R.string.merge_accounts_loan_tag)
                 Text(
                     text = buildString {
                         if (acct.accountLast4 != AccountBalanceEntity.WALLET_ACCOUNT_MARKER) {
@@ -261,6 +264,7 @@ private fun AccountPickerRow(
                         }
                         append(acct.currency)
                         if (acct.isCreditCard) append(" · $creditTag")
+                        if (acct.getAccountType() == AccountType.LOAN) append(" · $loanTag")
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -288,12 +292,14 @@ private fun AccountPickerRow(
     }
 }
 
-/** Two accounts can be merged when they share currency + credit-card flag. */
+/** Two accounts can be merged when they share currency and liability status
+ *  (Credit/Loan can't merge with a spendable account — mixing debt and asset
+ *  balance history would corrupt both). */
 private fun compatible(a: AccountBalanceEntity, b: AccountBalanceEntity): Boolean {
     val sameAccount = a.bankName.equals(b.bankName, ignoreCase = true) &&
         a.accountLast4 == b.accountLast4
     if (sameAccount) return false
     if (!a.currency.equals(b.currency, ignoreCase = true)) return false
-    if (a.isCreditCard != b.isCreditCard) return false
+    if (a.isLiability() != b.isLiability()) return false
     return true
 }

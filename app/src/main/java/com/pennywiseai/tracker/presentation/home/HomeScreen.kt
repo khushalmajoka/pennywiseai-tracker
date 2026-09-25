@@ -835,7 +835,7 @@ fun HomeScreen(
                     }
                     HomeSection.ACCOUNTS -> {
                         // 4. Account Carousel
-                        if (uiState.creditCards.isNotEmpty() || uiState.accountBalances.isNotEmpty()) {
+                        if (uiState.creditCards.isNotEmpty() || uiState.accountBalances.isNotEmpty() || uiState.loanAccounts.isNotEmpty()) {
                             item(key = section.name) {
                                 val visible = remember { mutableStateOf(hasAnimated) }
                                 LaunchedEffect(Unit) {
@@ -869,6 +869,7 @@ fun HomeScreen(
                                             modifier = Modifier.padding(horizontal = Dimensions.Padding.content),
                                             bankAccounts = uiState.accountBalances,
                                             creditCards = uiState.creditCards,
+                                            loanAccounts = uiState.loanAccounts,
                                             onAccountClick = { bankName, accountLast4 ->
                                                 navController.navigate(
                                                     com.pennywiseai.tracker.navigation.AccountDetail(
