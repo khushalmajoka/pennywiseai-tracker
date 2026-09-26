@@ -289,6 +289,48 @@ fun ManageAccountsScreen(
                     }
                 }
 
+                // Loan Accounts Section (Visible Only) — right after Bank Accounts,
+                // ahead of Credit Cards, since a loan is closer to "an account you
+                // manage" than a card product.
+                if (visibleLoanAccounts.isNotEmpty()) {
+                    item {
+                        Spacer(modifier = Modifier.height(Spacing.md))
+                        SectionHeaderV2(title = stringResource(R.string.manage_accounts_section_loans))
+                    }
+
+                    items(visibleLoanAccounts) { account ->
+                        AccountItem(
+                            account = account,
+                            isHidden = false,
+                            onToggleVisibility = {
+                                viewModel.toggleAccountVisibility(account.bankName, account.accountLast4)
+                            },
+                            onUpdateBalance = {
+                                selectedAccount = account.bankName to account.accountLast4
+                                selectedAccountEntity = account
+                                showUpdateDialog = true
+                            },
+                            onViewHistory = {
+                                onNavigateToBalanceHistory(account.bankName, account.accountLast4)
+                            },
+                            onDeleteAccount = {
+                                accountToDelete = account.bankName to account.accountLast4
+                                showDeleteConfirmDialog = true
+                            },
+                            onEditAccount = {
+                                accountToEdit = account
+                                showEditDialog = true
+                            },
+                            onSetProfile = { profileId ->
+                                viewModel.setAccountProfile(account.bankName, account.accountLast4, profileId)
+                            },
+                            onSetAlias = { alias ->
+                                viewModel.setAccountAlias(account.bankName, account.accountLast4, alias)
+                            }
+                        )
+                    }
+                }
+
                 // Orphaned Cards Section
                 if (uiState.orphanedCards.isNotEmpty()) {
                     item {
@@ -345,46 +387,6 @@ fun ManageAccountsScreen(
                             },
                             onSetStatementDay = { day ->
                                 viewModel.setStatementDay(card.bankName, card.accountLast4, day)
-                            }
-                        )
-                    }
-                }
-
-                // Loan Accounts Section (Visible Only)
-                if (visibleLoanAccounts.isNotEmpty()) {
-                    item {
-                        Spacer(modifier = Modifier.height(Spacing.md))
-                        SectionHeaderV2(title = stringResource(R.string.manage_accounts_section_loans))
-                    }
-
-                    items(visibleLoanAccounts) { account ->
-                        AccountItem(
-                            account = account,
-                            isHidden = false,
-                            onToggleVisibility = {
-                                viewModel.toggleAccountVisibility(account.bankName, account.accountLast4)
-                            },
-                            onUpdateBalance = {
-                                selectedAccount = account.bankName to account.accountLast4
-                                selectedAccountEntity = account
-                                showUpdateDialog = true
-                            },
-                            onViewHistory = {
-                                onNavigateToBalanceHistory(account.bankName, account.accountLast4)
-                            },
-                            onDeleteAccount = {
-                                accountToDelete = account.bankName to account.accountLast4
-                                showDeleteConfirmDialog = true
-                            },
-                            onEditAccount = {
-                                accountToEdit = account
-                                showEditDialog = true
-                            },
-                            onSetProfile = { profileId ->
-                                viewModel.setAccountProfile(account.bankName, account.accountLast4, profileId)
-                            },
-                            onSetAlias = { alias ->
-                                viewModel.setAccountAlias(account.bankName, account.accountLast4, alias)
                             }
                         )
                     }
@@ -476,36 +478,6 @@ fun ManageAccountsScreen(
                             )
                         }
 
-                        // Hidden Credit Cards
-                        items(hiddenCreditCards) { card ->
-                            CreditCardItem(
-                                card = card,
-                                isHidden = true,
-                                onToggleVisibility = {
-                                    viewModel.toggleAccountVisibility(card.bankName, card.accountLast4)
-                                },
-                                onUpdateBalance = {
-                                    selectedAccount = card.bankName to card.accountLast4
-                                    selectedAccountEntity = card
-                                    showUpdateDialog = true
-                                },
-                                onViewHistory = {
-                                    onNavigateToBalanceHistory(card.bankName, card.accountLast4)
-                                },
-                                onDeleteAccount = {
-                                    accountToDelete = card.bankName to card.accountLast4
-                                    showDeleteConfirmDialog = true
-                                },
-                                onEditAccount = {
-                                    accountToEdit = card
-                                    showEditDialog = true
-                                },
-                                onSetStatementDay = { day ->
-                                    viewModel.setStatementDay(card.bankName, card.accountLast4, day)
-                                }
-                            )
-                        }
-
                         // Hidden Loan Accounts
                         items(hiddenLoanAccounts) { account ->
                             AccountItem(
@@ -535,6 +507,36 @@ fun ManageAccountsScreen(
                                 },
                                 onSetAlias = { alias ->
                                     viewModel.setAccountAlias(account.bankName, account.accountLast4, alias)
+                                }
+                            )
+                        }
+
+                        // Hidden Credit Cards
+                        items(hiddenCreditCards) { card ->
+                            CreditCardItem(
+                                card = card,
+                                isHidden = true,
+                                onToggleVisibility = {
+                                    viewModel.toggleAccountVisibility(card.bankName, card.accountLast4)
+                                },
+                                onUpdateBalance = {
+                                    selectedAccount = card.bankName to card.accountLast4
+                                    selectedAccountEntity = card
+                                    showUpdateDialog = true
+                                },
+                                onViewHistory = {
+                                    onNavigateToBalanceHistory(card.bankName, card.accountLast4)
+                                },
+                                onDeleteAccount = {
+                                    accountToDelete = card.bankName to card.accountLast4
+                                    showDeleteConfirmDialog = true
+                                },
+                                onEditAccount = {
+                                    accountToEdit = card
+                                    showEditDialog = true
+                                },
+                                onSetStatementDay = { day ->
+                                    viewModel.setStatementDay(card.bankName, card.accountLast4, day)
                                 }
                             )
                         }
@@ -921,6 +923,23 @@ private fun CreditCardItem(
                                 )
                             }
                         )
+                        // The primary button already opens Edit for a manual account
+                        // (see onClick above) — this is the only path to it otherwise.
+                        if (!isManualAccount) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.manage_accounts_action_edit)) },
+                                onClick = {
+                                    showMenu = false
+                                    onEditAccount()
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.Default.Edit,
+                                        contentDescription = null
+                                    )
+                                }
+                            )
+                        }
                         DropdownMenuItem(
                             text = {
                                 Text(
@@ -1328,6 +1347,25 @@ private fun AccountItem(
                                 )
                             }
                         )
+                        // The primary button already opens Edit for a manual account
+                        // (see onClick above) — this is the only path to it otherwise,
+                        // and the only way to reach the Loan-reclassification toggle
+                        // for an SMS-tracked account (#792).
+                        if (!isManualAccount) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.manage_accounts_action_edit)) },
+                                onClick = {
+                                    showMenu = false
+                                    onEditAccount()
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.Default.Edit,
+                                        contentDescription = null
+                                    )
+                                }
+                            )
+                        }
                         DropdownMenuItem(
                             text = { Text(if (account.profileId == ProfileEntity.BUSINESS_ID) stringResource(R.string.manage_accounts_menu_mark_personal) else stringResource(R.string.manage_accounts_menu_mark_business)) },
                             onClick = {

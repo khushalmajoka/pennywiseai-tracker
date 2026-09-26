@@ -63,7 +63,7 @@ fun AccountCarousel(
     blurEffects: Boolean = false,
     hazeState: HazeState? = null
 ) {
-    val allAccounts = bankAccounts + creditCards + loanAccounts
+    val allAccounts = bankAccounts + loanAccounts + creditCards
 
     if (allAccounts.isEmpty()) return
 
