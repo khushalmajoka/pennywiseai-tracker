@@ -383,56 +383,65 @@ fun TransactionTabContent(
             } else {
                 TransactionType.values().toList()
             }
-            FlowRow(
+            // Chips + caption grouped tightly together (own tight spacing) so the
+            // caption reads as belonging to the chips above it, not the Date row
+            // that follows — the outer Column's wider spacing only applies BETWEEN
+            // this group and what comes next.
+            Column(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
-                verticalArrangement = Arrangement.spacedBy(Spacing.sm)
+                verticalArrangement = Arrangement.spacedBy(Spacing.xs)
             ) {
-                visibleTypes.forEach { type ->
-                    FilterChip(
-                        selected = uiState.transactionType == type,
-                        onClick = { viewModel.updateTransactionType(type) },
-                        label = {
-                            val label = when {
-                                isLoanAccount && type == TransactionType.INCOME -> stringResource(R.string.add_txn_type_loan_credit)
-                                isLoanAccount && type == TransactionType.EXPENSE -> stringResource(R.string.add_txn_type_loan_debit)
-                                else -> stringResource(transactionTypeLabel(type))
-                            }
-                            Text(label)
-                        },
-                        leadingIcon = if (uiState.transactionType == type) {
-                            {
-                                Icon(
-                                    Icons.Default.Check,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(Dimensions.Icon.small)
-                                )
-                            }
-                        } else null,
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(0.7f),
-                            labelColor = MaterialTheme.colorScheme.onSurface
-                        ),
-                        border = FilterChipDefaults.filterChipBorder(
-                            borderWidth = 0.dp,
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.sm)
+                ) {
+                    visibleTypes.forEach { type ->
+                        FilterChip(
                             selected = uiState.transactionType == type,
-                            enabled = true
+                            onClick = { viewModel.updateTransactionType(type) },
+                            label = {
+                                val label = when {
+                                    isLoanAccount && type == TransactionType.INCOME -> stringResource(R.string.add_txn_type_loan_credit)
+                                    isLoanAccount && type == TransactionType.EXPENSE -> stringResource(R.string.add_txn_type_loan_debit)
+                                    else -> stringResource(transactionTypeLabel(type))
+                                }
+                                Text(label)
+                            },
+                            leadingIcon = if (uiState.transactionType == type) {
+                                {
+                                    Icon(
+                                        Icons.Default.Check,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(Dimensions.Icon.small)
+                                    )
+                                }
+                            } else null,
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(0.7f),
+                                labelColor = MaterialTheme.colorScheme.onSurface
+                            ),
+                            border = FilterChipDefaults.filterChipBorder(
+                                borderWidth = 0.dp,
+                                selected = uiState.transactionType == type,
+                                enabled = true
+                            )
                         )
+                    }
+                }
+                if (isLoanAccount) {
+                    Text(
+                        text = when {
+                            isTransfer -> stringResource(R.string.add_txn_type_loan_hint_transfer)
+                            uiState.transactionType == TransactionType.INCOME -> stringResource(R.string.add_txn_type_loan_hint_credit)
+                            else -> stringResource(R.string.add_txn_type_loan_hint_debit)
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-            }
-            if (isLoanAccount && !isTransfer) {
-                Text(
-                    text = if (uiState.transactionType == TransactionType.INCOME) {
-                        stringResource(R.string.add_txn_type_loan_hint_credit)
-                    } else {
-                        stringResource(R.string.add_txn_type_loan_hint_debit)
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
             }
 
             // ── Date + Time row ──
