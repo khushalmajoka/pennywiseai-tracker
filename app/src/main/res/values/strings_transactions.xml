@@ -255,7 +255,6 @@
     <string name="add_txn_type_loan_debit">Debit</string>
     <string name="add_txn_type_loan_hint_credit">Reduces what you owe</string>
     <string name="add_txn_type_loan_hint_debit">Increases what you owe</string>
-    <string name="add_txn_type_loan_hint_transfer">Set this Loan as the "To" account for a repayment</string>
     <string name="add_clear">Clear</string>
     <string name="add_selected">Selected</string>
     <string name="add_save">Save</string>

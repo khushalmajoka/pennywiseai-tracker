@@ -383,63 +383,66 @@ fun TransactionTabContent(
             } else {
                 TransactionType.values().toList()
             }
-            // Chips + caption grouped tightly together (own tight spacing) so the
-            // caption reads as belonging to the chips above it, not the Date row
-            // that follows — the outer Column's wider spacing only applies BETWEEN
-            // this group and what comes next.
-            Column(
+            FlowRow(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(Spacing.xs)
+                horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+                verticalArrangement = Arrangement.spacedBy(Spacing.sm)
             ) {
-                FlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
-                    verticalArrangement = Arrangement.spacedBy(Spacing.sm)
-                ) {
-                    visibleTypes.forEach { type ->
-                        FilterChip(
-                            selected = uiState.transactionType == type,
-                            onClick = { viewModel.updateTransactionType(type) },
-                            label = {
-                                val label = when {
-                                    isLoanAccount && type == TransactionType.INCOME -> stringResource(R.string.add_txn_type_loan_credit)
-                                    isLoanAccount && type == TransactionType.EXPENSE -> stringResource(R.string.add_txn_type_loan_debit)
-                                    else -> stringResource(transactionTypeLabel(type))
+                visibleTypes.forEach { type ->
+                    val isSelected = uiState.transactionType == type
+                    // For a Loan account's Credit/Debit, the explanation of what it
+                    // does lives INSIDE the selected chip itself (not a separate
+                    // caption below) so it can't be misread as belonging to
+                    // something else on the screen (#792).
+                    val showInlineHint = isLoanAccount && isSelected &&
+                        (type == TransactionType.INCOME || type == TransactionType.EXPENSE)
+                    FilterChip(
+                        selected = isSelected,
+                        onClick = { viewModel.updateTransactionType(type) },
+                        label = {
+                            val label = when {
+                                isLoanAccount && type == TransactionType.INCOME -> stringResource(R.string.add_txn_type_loan_credit)
+                                isLoanAccount && type == TransactionType.EXPENSE -> stringResource(R.string.add_txn_type_loan_debit)
+                                else -> stringResource(transactionTypeLabel(type))
+                            }
+                            if (showInlineHint) {
+                                val hint = if (type == TransactionType.INCOME) {
+                                    stringResource(R.string.add_txn_type_loan_hint_credit)
+                                } else {
+                                    stringResource(R.string.add_txn_type_loan_hint_debit)
                                 }
-                                Text(label)
-                            },
-                            leadingIcon = if (uiState.transactionType == type) {
-                                {
-                                    Icon(
-                                        Icons.Default.Check,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(Dimensions.Icon.small)
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(label, style = MaterialTheme.typography.labelLarge)
+                                    Text(
+                                        hint,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                                     )
                                 }
-                            } else null,
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                containerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(0.7f),
-                                labelColor = MaterialTheme.colorScheme.onSurface
-                            ),
-                            border = FilterChipDefaults.filterChipBorder(
-                                borderWidth = 0.dp,
-                                selected = uiState.transactionType == type,
-                                enabled = true
-                            )
-                        )
-                    }
-                }
-                if (isLoanAccount) {
-                    Text(
-                        text = when {
-                            isTransfer -> stringResource(R.string.add_txn_type_loan_hint_transfer)
-                            uiState.transactionType == TransactionType.INCOME -> stringResource(R.string.add_txn_type_loan_hint_credit)
-                            else -> stringResource(R.string.add_txn_type_loan_hint_debit)
+                            } else {
+                                Text(label)
+                            }
                         },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        leadingIcon = if (isSelected) {
+                            {
+                                Icon(
+                                    Icons.Default.Check,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(Dimensions.Icon.small)
+                                )
+                            }
+                        } else null,
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(0.7f),
+                            labelColor = MaterialTheme.colorScheme.onSurface
+                        ),
+                        border = FilterChipDefaults.filterChipBorder(
+                            borderWidth = 0.dp,
+                            selected = isSelected,
+                            enabled = true
+                        )
                     )
                 }
             }
