@@ -401,7 +401,7 @@ fun ManageAccountsScreen(
                                 .fillMaxWidth()
                                 .clickable { showHiddenAccounts = !showHiddenAccounts },
                             colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
                             ),
                             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                         ) {
