@@ -404,7 +404,14 @@ class AddViewModel @Inject constructor(
                 // Merchant is optional for a Loan account (see isLoanAccount above) —
                 // fall back to a readable label instead of persisting a blank name.
                 val merchantName = state.merchant.trim().ifBlank {
-                    if (isLoanAccount) appContext.getString(R.string.add_loan_default_merchant) else ""
+                    if (isLoanAccount) {
+                        val res = if (state.transactionType == TransactionType.INCOME) {
+                            R.string.add_loan_default_merchant_credit
+                        } else {
+                            R.string.add_loan_default_merchant_debit
+                        }
+                        appContext.getString(res)
+                    } else ""
                 }
 
                 addTransactionUseCase.execute(

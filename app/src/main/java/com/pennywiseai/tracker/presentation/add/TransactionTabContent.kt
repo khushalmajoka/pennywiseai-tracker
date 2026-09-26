@@ -371,7 +371,13 @@ fun TransactionTabContent(
             // A Loan account only has two meaningful single-account effects — money
             // in reduces what's owed, money out increases it — so Investment/Credit
             // (which duplicate Expense's effect or don't apply to a liability at all)
-            // are hidden, and Income/Expense get loan-flavored labels (#792).
+            // are hidden, and Income/Expense are relabeled "Credit"/"Debit" (the
+            // standard loan-statement terms) for a Loan account only (#792). This is
+            // a display label only — it still stores TransactionType.INCOME/EXPENSE,
+            // never TransactionType.CREDIT, which keeps its own unrelated meaning
+            // elsewhere (a Credit Card purchase, which *increases* debt — the
+            // opposite direction of "Credit" here. Deliberate, user-requested;
+            // don't try to unify the two).
             val visibleTypes = if (isLoanAccount) {
                 listOf(TransactionType.INCOME, TransactionType.EXPENSE, TransactionType.TRANSFER)
             } else {
@@ -388,8 +394,8 @@ fun TransactionTabContent(
                         onClick = { viewModel.updateTransactionType(type) },
                         label = {
                             val label = when {
-                                isLoanAccount && type == TransactionType.INCOME -> stringResource(R.string.add_txn_type_loan_payment)
-                                isLoanAccount && type == TransactionType.EXPENSE -> stringResource(R.string.add_txn_type_loan_charge)
+                                isLoanAccount && type == TransactionType.INCOME -> stringResource(R.string.add_txn_type_loan_credit)
+                                isLoanAccount && type == TransactionType.EXPENSE -> stringResource(R.string.add_txn_type_loan_debit)
                                 else -> stringResource(transactionTypeLabel(type))
                             }
                             Text(label)

@@ -251,9 +251,9 @@
     <string name="add_field_merchant">Merchant</string>
     <string name="add_field_notes">Notes (Optional)</string>
     <string name="add_field_category">Category</string>
-    <string name="add_txn_type_loan_payment">Payment</string>
-    <string name="add_txn_type_loan_charge">Charge</string>
-    <string name="add_txn_type_loan_hint">Payment reduces what you owe (EMI, principal). Charge increases it (fees, new charges).</string>
+    <string name="add_txn_type_loan_credit">Credit</string>
+    <string name="add_txn_type_loan_debit">Debit</string>
+    <string name="add_txn_type_loan_hint">Credit reduces what you owe (EMI, principal). Debit increases it (fees, new charges). Use Transfer instead if you also track the account the money came from.</string>
     <string name="add_clear">Clear</string>
     <string name="add_selected">Selected</string>
     <string name="add_save">Save</string>
@@ -297,7 +297,8 @@
     <string name="add_error_merchant_required">Merchant/Description is required</string>
     <string name="add_error_merchant_too_short">Too short</string>
     <string name="add_error_category_required">Category is required</string>
-    <string name="add_loan_default_merchant">Loan Payment</string>
+    <string name="add_loan_default_merchant_credit">Loan Credit</string>
+    <string name="add_loan_default_merchant_debit">Loan Debit</string>
 
     <!-- Transaction groups -->
     <string name="groups_title">Transaction Groups</string>
