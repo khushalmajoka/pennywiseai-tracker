@@ -12,6 +12,8 @@ import com.pennywiseai.tracker.data.database.entity.BudgetImpactType
 import com.pennywiseai.tracker.data.database.entity.TransactionType
 import com.pennywiseai.tracker.data.database.entity.SubscriptionState
 import com.pennywiseai.tracker.data.preferences.UserPreferencesRepository
+import com.pennywiseai.tracker.domain.model.getAccountType
+import com.pennywiseai.tracker.presentation.accounts.AccountType
 import com.pennywiseai.tracker.data.receipt.ReceiptManager
 import com.pennywiseai.tracker.data.repository.AccountBalanceRepository
 import com.pennywiseai.tracker.data.repository.BudgetGroupRepository
@@ -177,7 +179,28 @@ class AddViewModel @Inject constructor(
             } else {
                 currentState.currency
             }
-            currentState.copy(selectedAccount = account, currency = currency)
+            // Merchant is hidden for a Loan account — drop any error left over from
+            // before the account was (re)selected, so it can't silently block Save
+            // for a field the user can no longer see (#792).
+            val isLoanAccount = account?.getAccountType() == AccountType.LOAN
+            val merchantError = if (isLoanAccount) null else currentState.merchantError
+            // Investment/Credit aren't offered as chips for a Loan account (see
+            // TransactionTabContent) — fall back to Income ("Payment") so a leftover
+            // selection from before this account was picked doesn't leave no chip
+            // looking selected.
+            val transactionType = if (isLoanAccount &&
+                currentState.transactionType !in setOf(TransactionType.INCOME, TransactionType.EXPENSE, TransactionType.TRANSFER)
+            ) {
+                TransactionType.INCOME
+            } else {
+                currentState.transactionType
+            }
+            currentState.copy(
+                selectedAccount = account,
+                currency = currency,
+                merchantError = merchantError,
+                transactionType = transactionType
+            )
         }
     }
 
@@ -334,10 +357,13 @@ class AddViewModel @Inject constructor(
     fun saveTransaction(onSuccess: () -> Unit) {
         val state = _transactionUiState.value
         val isTransfer = state.transactionType == TransactionType.TRANSFER
+        // A Loan-account transaction (e.g. an EMI payment) isn't a purchase from a
+        // merchant any more than a transfer is — same exemption as TRANSFER (#792).
+        val isLoanAccount = state.selectedAccount?.getAccountType() == AccountType.LOAN
 
         val amountError = validateAmount(state.amount)
-        // Transfers have no merchant/category to validate.
-        val merchantError = if (isTransfer) null else validateMerchant(state.merchant)
+        // Transfers and Loan-account transactions have no merchant to validate.
+        val merchantError = if (isTransfer || isLoanAccount) null else validateMerchant(state.merchant)
         val categoryError = if (isTransfer) null else validateCategory(state.category)
 
         if (amountError != null || merchantError != null || categoryError != null) {
@@ -375,9 +401,15 @@ class AddViewModel @Inject constructor(
 
                 val receiptPath = state.receiptUri?.let { receiptManager.saveReceipt(it) }
 
+                // Merchant is optional for a Loan account (see isLoanAccount above) —
+                // fall back to a readable label instead of persisting a blank name.
+                val merchantName = state.merchant.trim().ifBlank {
+                    if (isLoanAccount) appContext.getString(R.string.add_loan_default_merchant) else ""
+                }
+
                 addTransactionUseCase.execute(
                     amount = amount,
-                    merchant = state.merchant.trim(),
+                    merchant = merchantName,
                     category = state.category,
                     type = state.transactionType,
                     date = state.date,
@@ -660,7 +692,10 @@ data class TransactionUiState(
                 return from.id != to.id && from.currency == to.currency
             }
 
-            return merchant.isNotBlank() &&
+            // A Loan-account payment isn't a purchase from a merchant any more
+            // than a transfer is — same exemption (#792).
+            val isLoanAccount = selectedAccount?.getAccountType() == AccountType.LOAN
+            return (isLoanAccount || merchant.isNotBlank()) &&
                     category.isNotBlank() &&
                     merchantError == null &&
                     categoryError == null &&

@@ -171,6 +171,9 @@ fun TransactionTabContent(
     var showCurrencyMenu by remember { mutableStateOf(false) }
 
     val isTransfer = uiState.transactionType == TransactionType.TRANSFER
+    // A Loan-account transaction (e.g. an EMI payment) isn't a purchase from a
+    // merchant any more than a transfer is — same exemption as TRANSFER (#792).
+    val isLoanAccount = uiState.selectedAccount?.getAccountType() == AccountType.LOAN
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -181,6 +184,94 @@ fun TransactionTabContent(
                 .padding(horizontal = Dimensions.Padding.content, vertical = Dimensions.Padding.content),
             verticalArrangement = Arrangement.spacedBy(Spacing.sm)
         ) {
+            // ── Account(s) + Category (connected cards) ──
+            // Asked first: which fields make sense below (merchant vs. not) depends
+            // on what kind of account this is (#792).
+            if (isTransfer) {
+                // Two account pickers: From (money out) and To (money in).
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(1.5.dp)
+                ) {
+                    AccountSelectorCard(
+                        account = uiState.selectedAccount,
+                        placeholder = stringResource(R.string.add_txn_from_account),
+                        shape = topShape,
+                        onClick = { accountPickerTarget = AccountPickerTarget.FROM },
+                        onClear = { viewModel.updateSelectedAccount(null) }
+                    )
+                    AccountSelectorCard(
+                        account = uiState.toAccount,
+                        placeholder = stringResource(R.string.add_txn_to_account),
+                        shape = bottomShape,
+                        onClick = { accountPickerTarget = AccountPickerTarget.TO },
+                        onClear = { viewModel.updateToAccount(null) }
+                    )
+                }
+            } else {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(1.5.dp)
+                ) {
+                    // Account card
+                    AccountSelectorCard(
+                        account = uiState.selectedAccount,
+                        placeholder = stringResource(R.string.add_txn_select_account),
+                        shape = topShape,
+                        onClick = { accountPickerTarget = AccountPickerTarget.FROM },
+                        onClear = { viewModel.updateSelectedAccount(null) }
+                    )
+
+                    // Category field
+                    ExposedDropdownMenuBox(
+                        expanded = showCategoryMenu,
+                        onExpandedChange = { showCategoryMenu = it },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        TextField(
+                            value = uiState.category,
+                            onValueChange = {},
+                            label = { Text(stringResource(R.string.add_field_category), fontWeight = FontWeight.SemiBold) },
+                            readOnly = true,
+                            singleLine = true,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                            shape = bottomShape,
+                            leadingIcon = {
+                                Icon(Icons.Default.Category, contentDescription = null)
+                            },
+                            trailingIcon = {
+                                Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = null)
+                            },
+                            isError = uiState.categoryError != null,
+                            supportingText = uiState.categoryError?.let { { Text(it.asString()) } },
+                            colors = filledFieldColors()
+                        )
+
+                        ExposedDropdownMenu(
+                            expanded = showCategoryMenu,
+                            onDismissRequest = { showCategoryMenu = false }
+                        ) {
+                            categories.forEach { category ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            category.name,
+                                            modifier = Modifier.padding(start = if (category.parentId != null) Spacing.lg else Spacing.none)
+                                        )
+                                    },
+                                    onClick = {
+                                        viewModel.updateTransactionCategory(category.name)
+                                        showCategoryMenu = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
             // ── Amount ──
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -235,12 +326,13 @@ fun TransactionTabContent(
 
             // ── Merchant + Notes (connected cards) ──
             // Merchant is meaningless for a TRANSFER (it moves money between own
-            // accounts), so hide it and show Notes on its own.
+            // accounts) or a Loan-account payment (not a purchase) — hide it and
+            // show Notes on its own in both cases (#792).
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(1.5.dp)
             ) {
-                if (!isTransfer) {
+                if (!isTransfer && !isLoanAccount) {
                     TextField(
                         value = uiState.merchant,
                         onValueChange = viewModel::updateTransactionMerchant,
@@ -260,7 +352,7 @@ fun TransactionTabContent(
                     onValueChange = viewModel::updateTransactionNotes,
                     label = { Text(stringResource(R.string.add_field_notes), fontWeight = FontWeight.SemiBold) },
                     modifier = Modifier.fillMaxWidth(),
-                    shape = if (isTransfer) fullShape else bottomShape,
+                    shape = if (isTransfer || isLoanAccount) fullShape else bottomShape,
                     leadingIcon = { Icon(Icons.Default.Description, contentDescription = null) },
                     colors = filledFieldColors()
                 )
@@ -276,17 +368,31 @@ fun TransactionTabContent(
             )
 
             // ── Transaction Type chips ──
+            // A Loan account only has two meaningful single-account effects — money
+            // in reduces what's owed, money out increases it — so Investment/Credit
+            // (which duplicate Expense's effect or don't apply to a liability at all)
+            // are hidden, and Income/Expense get loan-flavored labels (#792).
+            val visibleTypes = if (isLoanAccount) {
+                listOf(TransactionType.INCOME, TransactionType.EXPENSE, TransactionType.TRANSFER)
+            } else {
+                TransactionType.values().toList()
+            }
             FlowRow(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
                 verticalArrangement = Arrangement.spacedBy(Spacing.sm)
             ) {
-                TransactionType.values().forEach { type ->
+                visibleTypes.forEach { type ->
                     FilterChip(
                         selected = uiState.transactionType == type,
                         onClick = { viewModel.updateTransactionType(type) },
                         label = {
-                            Text(stringResource(transactionTypeLabel(type)))
+                            val label = when {
+                                isLoanAccount && type == TransactionType.INCOME -> stringResource(R.string.add_txn_type_loan_payment)
+                                isLoanAccount && type == TransactionType.EXPENSE -> stringResource(R.string.add_txn_type_loan_charge)
+                                else -> stringResource(transactionTypeLabel(type))
+                            }
+                            Text(label)
                         },
                         leadingIcon = if (uiState.transactionType == type) {
                             {
@@ -310,6 +416,13 @@ fun TransactionTabContent(
                         )
                     )
                 }
+            }
+            if (isLoanAccount && !isTransfer) {
+                Text(
+                    text = stringResource(R.string.add_txn_type_loan_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
 
             // ── Date + Time row ──
@@ -419,92 +532,6 @@ fun TransactionTabContent(
                                 style = MaterialTheme.typography.labelLarge,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                        }
-                    }
-                }
-            }
-
-            // ── Account(s) + Category (connected cards) ──
-            if (isTransfer) {
-                // Two account pickers: From (money out) and To (money in).
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(1.5.dp)
-                ) {
-                    AccountSelectorCard(
-                        account = uiState.selectedAccount,
-                        placeholder = stringResource(R.string.add_txn_from_account),
-                        shape = topShape,
-                        onClick = { accountPickerTarget = AccountPickerTarget.FROM },
-                        onClear = { viewModel.updateSelectedAccount(null) }
-                    )
-                    AccountSelectorCard(
-                        account = uiState.toAccount,
-                        placeholder = stringResource(R.string.add_txn_to_account),
-                        shape = bottomShape,
-                        onClick = { accountPickerTarget = AccountPickerTarget.TO },
-                        onClear = { viewModel.updateToAccount(null) }
-                    )
-                }
-            } else {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(1.5.dp)
-                ) {
-                    // Account card
-                    AccountSelectorCard(
-                        account = uiState.selectedAccount,
-                        placeholder = stringResource(R.string.add_txn_select_account),
-                        shape = topShape,
-                        onClick = { accountPickerTarget = AccountPickerTarget.FROM },
-                        onClear = { viewModel.updateSelectedAccount(null) }
-                    )
-
-                    // Category field
-                    ExposedDropdownMenuBox(
-                        expanded = showCategoryMenu,
-                        onExpandedChange = { showCategoryMenu = it },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        TextField(
-                            value = uiState.category,
-                            onValueChange = {},
-                            label = { Text(stringResource(R.string.add_field_category), fontWeight = FontWeight.SemiBold) },
-                            readOnly = true,
-                            singleLine = true,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .menuAnchor(MenuAnchorType.PrimaryNotEditable),
-                            shape = bottomShape,
-                            leadingIcon = {
-                                Icon(Icons.Default.Category, contentDescription = null)
-                            },
-                            trailingIcon = {
-                                Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = null)
-                            },
-                            isError = uiState.categoryError != null,
-                            supportingText = uiState.categoryError?.let { { Text(it.asString()) } },
-                            colors = filledFieldColors()
-                        )
-
-                        ExposedDropdownMenu(
-                            expanded = showCategoryMenu,
-                            onDismissRequest = { showCategoryMenu = false }
-                        ) {
-                            categories.forEach { category ->
-                                DropdownMenuItem(
-                                    text = {
-                                        Text(
-                                            category.name,
-                                            modifier = Modifier.padding(start = if (category.parentId != null) Spacing.lg else Spacing.none)
-                                        )
-                                    },
-                                    onClick = {
-                                        viewModel.updateTransactionCategory(category.name)
-                                        showCategoryMenu = false
-                                    }
-                                )
-                            }
                         }
                     }
                 }
