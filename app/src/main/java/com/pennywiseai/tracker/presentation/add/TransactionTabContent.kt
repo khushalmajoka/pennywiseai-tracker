@@ -42,6 +42,7 @@ import com.pennywiseai.tracker.ui.components.TagInputField
 import com.pennywiseai.tracker.ui.theme.*
 import com.pennywiseai.tracker.utils.CurrencyFormatter
 import com.pennywiseai.tracker.ui.theme.Spacing
+import kotlinx.coroutines.launch
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -390,12 +391,16 @@ fun TransactionTabContent(
             ) {
                 visibleTypes.forEach { type ->
                     val isSelected = uiState.transactionType == type
-                    // For a Loan account's Credit/Debit, the explanation of what it
-                    // does lives INSIDE the selected chip itself (not a separate
-                    // caption below) so it can't be misread as belonging to
-                    // something else on the screen (#792).
-                    val showInlineHint = isLoanAccount && isSelected &&
-                        (type == TransactionType.INCOME || type == TransactionType.EXPENSE)
+                    // For a Loan account's Credit/Debit, the explanation lives behind
+                    // a tappable (i) icon on the chip itself — visible for both chips
+                    // (so it helps you choose, not just confirms after) and bound
+                    // unambiguously to the one chip it's attached to (#792).
+                    val infoHint = when {
+                        !isLoanAccount -> null
+                        type == TransactionType.INCOME -> R.string.add_txn_type_loan_hint_credit
+                        type == TransactionType.EXPENSE -> R.string.add_txn_type_loan_hint_debit
+                        else -> null
+                    }
                     FilterChip(
                         selected = isSelected,
                         onClick = { viewModel.updateTransactionType(type) },
@@ -405,23 +410,7 @@ fun TransactionTabContent(
                                 isLoanAccount && type == TransactionType.EXPENSE -> stringResource(R.string.add_txn_type_loan_debit)
                                 else -> stringResource(transactionTypeLabel(type))
                             }
-                            if (showInlineHint) {
-                                val hint = if (type == TransactionType.INCOME) {
-                                    stringResource(R.string.add_txn_type_loan_hint_credit)
-                                } else {
-                                    stringResource(R.string.add_txn_type_loan_hint_debit)
-                                }
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text(label, style = MaterialTheme.typography.labelLarge)
-                                    Text(
-                                        hint,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-                                    )
-                                }
-                            } else {
-                                Text(label)
-                            }
+                            Text(label)
                         },
                         leadingIcon = if (isSelected) {
                             {
@@ -432,6 +421,29 @@ fun TransactionTabContent(
                                 )
                             }
                         } else null,
+                        trailingIcon = infoHint?.let { hintRes ->
+                            {
+                                val hintText = stringResource(hintRes)
+                                val tooltipState = rememberTooltipState()
+                                val scope = rememberCoroutineScope()
+                                TooltipBox(
+                                    positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+                                    tooltip = { PlainTooltip { Text(hintText) } },
+                                    state = tooltipState
+                                ) {
+                                    Icon(
+                                        Icons.Default.Info,
+                                        contentDescription = hintText,
+                                        modifier = Modifier
+                                            .size(Dimensions.Icon.small)
+                                            .clickable(
+                                                interactionSource = remember { MutableInteractionSource() },
+                                                indication = null
+                                            ) { scope.launch { tooltipState.show() } }
+                                    )
+                                }
+                            }
+                        },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                             selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
