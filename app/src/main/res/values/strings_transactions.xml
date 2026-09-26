@@ -253,7 +253,8 @@
     <string name="add_field_category">Category</string>
     <string name="add_txn_type_loan_credit">Credit</string>
     <string name="add_txn_type_loan_debit">Debit</string>
-    <string name="add_txn_type_loan_hint">Credit reduces what you owe (EMI, principal). Debit increases it (fees, new charges). Use Transfer instead if you also track the account the money came from.</string>
+    <string name="add_txn_type_loan_hint_credit">Reduces what you owe</string>
+    <string name="add_txn_type_loan_hint_debit">Increases what you owe</string>
     <string name="add_clear">Clear</string>
     <string name="add_selected">Selected</string>
     <string name="add_save">Save</string>

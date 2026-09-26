@@ -184,10 +184,10 @@ class AddViewModel @Inject constructor(
             // for a field the user can no longer see (#792).
             val isLoanAccount = account?.getAccountType() == AccountType.LOAN
             val merchantError = if (isLoanAccount) null else currentState.merchantError
-            // Investment/Credit aren't offered as chips for a Loan account (see
-            // TransactionTabContent) — fall back to Income ("Payment") so a leftover
-            // selection from before this account was picked doesn't leave no chip
-            // looking selected.
+            // Investment/Credit (the generic TransactionType.CREDIT) aren't offered
+            // as chips for a Loan account (see TransactionTabContent) — fall back to
+            // Income (labeled "Credit" there) so a leftover selection from before
+            // this account was picked doesn't leave no chip looking selected.
             val transactionType = if (isLoanAccount &&
                 currentState.transactionType !in setOf(TransactionType.INCOME, TransactionType.EXPENSE, TransactionType.TRANSFER)
             ) {
@@ -195,11 +195,19 @@ class AddViewModel @Inject constructor(
             } else {
                 currentState.transactionType
             }
+            // Budget Impact doesn't apply to a Loan account (debt reduction, not a
+            // refund of spending or extra spending room) and its section is hidden
+            // there — drop any leftover selection so it can't silently persist on a
+            // Loan transaction the user can no longer see or edit it on (#792).
+            val budgetImpactType = if (isLoanAccount) null else currentState.budgetImpactType
+            val budgetCategory = if (isLoanAccount) null else currentState.budgetCategory
             currentState.copy(
                 selectedAccount = account,
                 currency = currency,
                 merchantError = merchantError,
-                transactionType = transactionType
+                transactionType = transactionType,
+                budgetImpactType = budgetImpactType,
+                budgetCategory = budgetCategory
             )
         }
     }

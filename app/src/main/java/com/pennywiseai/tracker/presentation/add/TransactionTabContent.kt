@@ -425,7 +425,11 @@ fun TransactionTabContent(
             }
             if (isLoanAccount && !isTransfer) {
                 Text(
-                    text = stringResource(R.string.add_txn_type_loan_hint),
+                    text = if (uiState.transactionType == TransactionType.INCOME) {
+                        stringResource(R.string.add_txn_type_loan_hint_credit)
+                    } else {
+                        stringResource(R.string.add_txn_type_loan_hint_debit)
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -629,8 +633,11 @@ fun TransactionTabContent(
                 }
             }
 
-            // ── Budget Impact (INCOME only) ──
-            if (uiState.transactionType == TransactionType.INCOME) {
+            // ── Budget Impact (INCOME only, and never for a Loan account — a loan
+            // Credit is debt reduction, not a refund of spending or extra spending
+            // room, so the concept doesn't apply even though Credit reuses INCOME
+            // internally) (#792) ──
+            if (uiState.transactionType == TransactionType.INCOME && !isLoanAccount) {
                 val activeBudgetCategories by viewModel.activeBudgetCategories.collectAsState()
                 AddBudgetImpactSection(
                     budgetImpactType = uiState.budgetImpactType,
