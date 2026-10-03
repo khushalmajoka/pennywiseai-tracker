@@ -164,6 +164,70 @@ class SmsReportRegressionTest {
             )
         )
 
-        return ParserTestUtils.runFactoryTestSuite(cases, "SMS report regressions")
+        return ParserTestUtils.runFactoryTestSuite(
+            cases + SimpleTestCase(
+                description = "slice app notification names the payer, not the account",
+                bankName = "Slice",
+                sender = "slice",
+                currency = "INR",
+                message = "UPI payment received! — You’ve got ₹1,565 from Person Name in your slice bank a/c xx1234. Avl. Bal. ₹3,502.05.",
+                expected = ExpectedTransaction(
+                    amount = BigDecimal("1565"),
+                    currency = "INR",
+                    type = TransactionType.INCOME,
+                    merchant = "Person Name",
+                    accountLast4 = "1234",
+                    balance = BigDecimal("3502.05")
+                ),
+                shouldHandle = true
+            ) + SimpleTestCase(
+                // The US ChaseBankParser accepts any sender containing "CHASE"; the
+                // UK alias must reach the GBP parser instead.
+                description = "ChaseUK alias routes to Chase UK, not the US parser",
+                bankName = "Chase UK",
+                sender = "ChaseUK",
+                currency = "GBP",
+                message = "🎉 £0.01 just landed in Test's Account from Jane Doe",
+                expected = ExpectedTransaction(
+                    amount = BigDecimal("0.01"),
+                    currency = "GBP",
+                    type = TransactionType.INCOME
+                ),
+                shouldHandle = true
+            ) + SimpleTestCase(
+                // Numeric shortcode — the parser only knew "Huntington Bank" (a contact
+                // display name), so real texts from 446622 were discarded unparsed.
+                description = "Huntington shortcode 446622 routes to Huntington",
+                bankName = "Huntington Bank",
+                sender = "446622",
+                currency = "USD",
+                message = "Huntington Heads Up. We processed an ATM withdrawal: \$17.07 at TEST ATM. Acct CK1234 has a \$500.00 bal (10/01/26 7:13 AM ET).",
+                expected = ExpectedTransaction(
+                    amount = BigDecimal("17.07"),
+                    currency = "USD",
+                    type = TransactionType.EXPENSE,
+                    merchant = "TEST ATM",
+                    accountLast4 = "1234",
+                    balance = BigDecimal("500.00")
+                ),
+                shouldHandle = true
+            ) + SimpleTestCase(
+                // Numeric shortcode: must not be claimed by a parser that grabs
+                // numeric senders (EverestBank) ahead of NFCU.
+                description = "NFCU shortcode 21398 routes to Navy Federal (#852)",
+                bankName = "Navy Federal Credit Union",
+                sender = "21398",
+                currency = "USD",
+                message = "NFCU: Transaction for \$231.72 was approved on credit card 1234 at TEST MERCHANT at 07:35 AM EDT on 09/25/26.Txt STOP to opt-out. Txt HELP for help.",
+                expected = ExpectedTransaction(
+                    amount = BigDecimal("231.72"),
+                    currency = "USD",
+                    type = TransactionType.EXPENSE,
+                    isFromCard = true
+                ),
+                shouldHandle = true
+            ),
+            "SMS report regressions"
+        )
     }
 }

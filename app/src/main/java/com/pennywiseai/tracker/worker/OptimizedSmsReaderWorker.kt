@@ -1,5 +1,6 @@
 package com.pennywiseai.tracker.worker
 
+import com.pennywiseai.tracker.receiver.BankNotificationConfig
 import com.pennywiseai.tracker.R
 import android.content.Context
 import android.os.Process
@@ -90,6 +91,14 @@ class OptimizedSmsReaderWorker @AssistedInject constructor(
         const val PROGRESS_PROCESSED                = "progress_processed"
         const val PROGRESS_PARSED                   = "progress_parsed"
         const val PROGRESS_SAVED                    = "progress_saved"
+
+        /** The final counts handed back on success — `progress` is gone by then. */
+        fun completionData(total: Int, processed: Int, parsed: Int, saved: Int): Data = workDataOf(
+            PROGRESS_TOTAL     to total,
+            PROGRESS_PROCESSED to processed,
+            PROGRESS_PARSED    to parsed,
+            PROGRESS_SAVED     to saved
+        )
         const val PROGRESS_BLOCKED                  = "progress_blocked"
         const val PROGRESS_TIME_ELAPSED             = "progress_time_elapsed"
         const val PROGRESS_ESTIMATED_TIME_REMAINING = "progress_estimated_time_remaining"
@@ -375,7 +384,13 @@ class OptimizedSmsReaderWorker @AssistedInject constructor(
                 Log.e(TAG, "Income autopay phantom creator failed: ${e.message}", e)
             }
             reportProgress(stats)
-            Result.success()
+            // WorkManager clears `progress` once work finishes, so a caller
+            // reading the result on SUCCEEDED saw every count as 0 — onboarding
+            // said "No transactions found" after importing a whole inbox. Hand
+            // the final counts back as output data.
+            Result.success(
+                completionData(stats.total, stats.processed.get(), stats.parsed.get(), stats.saved.get())
+            )
 
         } catch (e: Exception) {
             Log.e(TAG, "Fatal error in SMS worker", e)
@@ -723,6 +738,22 @@ class OptimizedSmsReaderWorker @AssistedInject constructor(
             val isBlocked = ruleEngine.shouldBlockTransaction(mapped, sms.body, activeRules) != null
 
             if (hashDeferred.await() != null) return@coroutineScope SaveOutcome.SKIPPED
+
+            // Same charge already booked from the bank's app notification. Only
+            // banks that can arrive by notification pay for the lookup.
+            if (entity.bankName in BankNotificationConfig.notificationBankNames) {
+                val nearby = transactionRepository.getTransactionByAmountAndDate(
+                    entity.amount,
+                    entity.dateTime.minusMinutes(2),
+                    entity.dateTime.plusMinutes(2)
+                )
+                if (TransactionDeduplication.isBookedByOtherChannel(
+                        entity, nearby, BankNotificationConfig.notificationAliases
+                    )
+                ) {
+                    return@coroutineScope SaveOutcome.SKIPPED
+                }
+            }
 
             // Durable deletion: skip re-inserting a transaction the user deleted,
             // even when its hash shifted across an app/parser update (the hash

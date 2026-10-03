@@ -5,7 +5,7 @@ Reading bank SMS is how the app works — it is the entire product. Everything h
 
 ★ Automatic expense tracking
 • Every UPI payment, card swipe, ATM withdrawal and bank transfer becomes a categorized transaction
-• 157 banks and payment services across 24 countries, with multi-currency support
+• 159 banks and payment services across 25 countries, with multi-currency support
 • Works with any UPI app — it reads your bank's SMS, not the app
 • A clean, searchable spending timeline that stays up to date on its own
 
@@ -25,6 +25,6 @@ Ask "what did I spend on food last month?" and get a real answer. The AI model (
 • Open source (AGPL-3.0) — read the code yourself
 
 ★ Free, with an optional Pro upgrade
-PennyWise is free to use. Where in-app purchases are available, an optional Pro upgrade adds unlimited custom rules, PDF statement imports, CSV export and duplicate-account merge — and directly supports a solo developer building PennyWise independently. Builds distributed without in-app purchases have all of it unlocked from the start.
+PennyWise is free to use. An optional Pro license adds unlimited custom rules, PDF statement imports, CSV export, duplicate-account merge and scheduled daily backups — and directly supports a solo developer building PennyWise independently. Already have a license key? Enter it under Settings → PennyWise Pro.
 
 A money manager, budget planner and spending tracker in one — for people who hate typing in expenses.
