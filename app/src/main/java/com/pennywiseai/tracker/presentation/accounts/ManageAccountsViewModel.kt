@@ -13,6 +13,7 @@ import com.pennywiseai.tracker.data.database.entity.ProfileEntity
 import com.pennywiseai.tracker.data.repository.AccountBalanceRepository
 import com.pennywiseai.tracker.data.repository.CardRepository
 import com.pennywiseai.tracker.domain.model.isLiability
+import com.pennywiseai.tracker.domain.model.sameLiabilityType
 import com.pennywiseai.tracker.domain.model.toDatabaseString
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -753,13 +754,12 @@ class ManageAccountsViewModel @Inject constructor(
     }
 
     /**
-     * Whether [bankName]/[accountLast4] uses the opening+recompute manual balance
-     * model. An account with an opening row can't be safely reclassified to/from
-     * LOAN — its opening row's own liability status, not the latest row's, is what
-     * [AccountBalanceRepository.isManualAccount] keys future recomputes on (#792).
+     * Whether the Loan toggle may be offered for [bankName]/[accountLast4] — see
+     * [AccountBalanceRepository.isLoanReclassifiable] for why manual-model and
+     * hand-created accounts are excluded (#792).
      */
-    suspend fun isManualAccount(bankName: String, accountLast4: String): Boolean =
-        accountBalanceRepository.isManualAccount(bankName, accountLast4)
+    suspend fun isLoanReclassifiable(bankName: String, accountLast4: String): Boolean =
+        accountBalanceRepository.isLoanReclassifiable(bankName, accountLast4)
 
     suspend fun previousNonLoanAccountType(bankName: String, accountLast4: String): AccountType =
         accountBalanceRepository.previousNonLoanAccountType(bankName, accountLast4)

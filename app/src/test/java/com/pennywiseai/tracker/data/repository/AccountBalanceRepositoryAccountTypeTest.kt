@@ -74,6 +74,14 @@ class AccountBalanceRepositoryAccountTypeTest {
                         .filter { it.bankName == bankName && it.accountLast4 == accountLast4 }
                         .maxByOrNull { it.timestamp }
                 }
+                "getLatestNonLoanBalance" -> {
+                    val bankName = args[0] as String
+                    val accountLast4 = args[1] as String
+                    balanceRows
+                        .filter { it.bankName == bankName && it.accountLast4 == accountLast4 }
+                        .filter { it.accountType == null || it.accountType != "LOAN" }
+                        .maxByOrNull { it.timestamp }
+                }
                 else -> null
             }
         } as AccountBalanceDao
@@ -156,6 +164,36 @@ class AccountBalanceRepositoryAccountTypeTest {
         val latest = repository.getLatestBalance("SBI", "9999")
         assertNull(latest?.accountType)
         assertEquals(AccountType.SAVINGS, latest?.getAccountType())
+    }
+
+    @Test
+    fun `previousNonLoanAccountType returns the type the account had before it became a Loan`() = runBlocking {
+        repository.insertBalance(
+            AccountBalanceEntity(
+                bankName = "KOTAK", accountLast4 = "1111", balance = BigDecimal("900.00"),
+                timestamp = LocalDateTime.now().minusDays(2), accountType = "CURRENT"
+            )
+        )
+        repository.insertBalance(
+            AccountBalanceEntity(
+                bankName = "KOTAK", accountLast4 = "1111", balance = BigDecimal("900.00"),
+                timestamp = LocalDateTime.now().minusDays(1), accountType = "LOAN"
+            )
+        )
+
+        assertEquals(AccountType.CURRENT, repository.previousNonLoanAccountType("KOTAK", "1111"))
+    }
+
+    @Test
+    fun `previousNonLoanAccountType falls back to SAVINGS when the account was always a Loan`() = runBlocking {
+        repository.insertBalance(
+            AccountBalanceEntity(
+                bankName = "KOTAK", accountLast4 = "2222", balance = BigDecimal("900.00"),
+                timestamp = LocalDateTime.now(), accountType = "LOAN"
+            )
+        )
+
+        assertEquals(AccountType.SAVINGS, repository.previousNonLoanAccountType("KOTAK", "2222"))
     }
 
     @Test

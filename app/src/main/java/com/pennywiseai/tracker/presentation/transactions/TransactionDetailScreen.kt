@@ -2050,10 +2050,10 @@ private fun AccountNumberField(
             label = { Text(label, fontWeight = FontWeight.SemiBold) },
             leadingIcon = {
                 Icon(
-                    if (availableAccounts.any { it.displayName == selectedAccount && it.isCreditCard }) {
-                        Icons.Default.CreditCard
-                    } else {
-                        Icons.Default.AccountBalance
+                    when {
+                        availableAccounts.any { it.displayName == selectedAccount && it.isCreditCard } -> Icons.Default.CreditCard
+                        availableAccounts.any { it.displayName == selectedAccount && it.isLoan } -> Icons.Default.RequestQuote
+                        else -> Icons.Default.AccountBalance
                     },
                     contentDescription = null,
                     modifier = Modifier.size(Dimensions.Icon.medium)

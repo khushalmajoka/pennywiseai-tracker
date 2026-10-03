@@ -614,6 +614,20 @@ open class AccountBalanceRepository @Inject constructor(
     }
 
     /**
+     * Whether the Loan toggle can safely be offered for this account. Excludes the
+     * opening+recompute manual model (see [isManualAccount]) AND hand-created accounts
+     * with no SMS history: [isManualAccount] returns false for a hand-created Loan
+     * (liabilities are excluded), but switching Loan off would put it on the recompute
+     * model, whose non-liability signs don't match the Loan rows already booked (#792).
+     */
+    suspend fun isLoanReclassifiable(bankName: String, accountLast4: String): Boolean {
+        if (isManualAccount(bankName, accountLast4)) return false
+        val latest = accountBalanceDao.getLatestBalance(bankName, accountLast4) ?: return false
+        return !(latest.sourceType == SOURCE_MANUAL &&
+            accountBalanceDao.countSmsSourcedBalances(bankName, accountLast4) == 0)
+    }
+
+    /**
      * The account's type before it was ever reclassified to LOAN, read from balance
      * history (most recent non-LOAN row). Falls back to SAVINGS — the same fallback
      * `toAccountType()` uses for an unset type — if the account has no non-LOAN history.

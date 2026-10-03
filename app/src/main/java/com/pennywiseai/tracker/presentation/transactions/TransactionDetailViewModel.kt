@@ -679,6 +679,9 @@ class TransactionDetailViewModel @Inject constructor(
         _editableTransaction.update { current ->
             current?.copy(accountNumber = if (accountNumber.isNullOrEmpty()) null else accountNumber)
         }
+        // Clearing the account means no Loan account any more; picking one is
+        // resolved in updateBankName, which fires right after with the bank.
+        if (accountNumber.isNullOrEmpty()) _isLoanAccount.value = false
     }
 
     /**
@@ -693,6 +696,16 @@ class TransactionDetailViewModel @Inject constructor(
     fun updateBankName(bankName: String?) {
         _editableTransaction.update { current ->
             current?.copy(bankName = if (bankName.isNullOrEmpty()) null else bankName)
+        }
+        // Reassigning the account in edit mode can move the transaction onto/off a
+        // Loan account, which gates Budget Impact — refresh rather than keep the
+        // value from when the transaction was first loaded (#792).
+        viewModelScope.launch {
+            val edited = _editableTransaction.value
+            val bank = edited?.bankName
+            val last4 = edited?.accountNumber
+            _isLoanAccount.value = bank != null && last4 != null &&
+                accountBalanceRepository.getLatestBalance(bank, last4)?.getAccountType() == AccountType.LOAN
         }
     }
 

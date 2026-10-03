@@ -240,6 +240,49 @@ fun ManageAccountsScreen(
                     it.getAccountType() == AccountType.LOAN && viewModel.isAccountHidden(it.bankName, it.accountLast4)
                 }
                 val allRegularAccounts = uiState.accounts.filter { !it.isLiability() }
+
+                // One row for Bank and Loan accounts, visible or hidden — the callback
+                // wiring is identical, only the account and its hidden flag differ.
+                val accountRow: @Composable (AccountBalanceEntity, Boolean) -> Unit = { account, isHidden ->
+                    AccountItem(
+                        account = account,
+                        // Cards link to bank accounts by last4; a Loan row has none to unlink.
+                        linkedCards = if (account.isLiability()) emptyList()
+                            else uiState.linkedCards[account.accountLast4] ?: emptyList(),
+                        isHidden = isHidden,
+                        onToggleVisibility = {
+                            viewModel.toggleAccountVisibility(account.bankName, account.accountLast4)
+                        },
+                        onUpdateBalance = {
+                            selectedAccount = account.bankName to account.accountLast4
+                            selectedAccountEntity = account
+                            showUpdateDialog = true
+                        },
+                        onViewHistory = {
+                            onNavigateToBalanceHistory(account.bankName, account.accountLast4)
+                        },
+                        onUnlinkCard = { cardId ->
+                            viewModel.unlinkCard(cardId)
+                        },
+                        onDeleteAccount = {
+                            accountToDelete = account.bankName to account.accountLast4
+                            showDeleteConfirmDialog = true
+                        },
+                        onEditAccount = {
+                            accountToEdit = account
+                            showEditDialog = true
+                        },
+                        onSetProfile = { profileId ->
+                            viewModel.setAccountProfile(account.bankName, account.accountLast4, profileId)
+                        },
+                        onSetAlias = { alias ->
+                            viewModel.setAccountAlias(account.bankName, account.accountLast4, alias)
+                        },
+                        onSetLowBalanceThreshold = { threshold ->
+                            viewModel.setLowBalanceThreshold(account.bankName, account.accountLast4, threshold)
+                        }
+                    )
+                }
                 
                 // Regular Bank Accounts Section (Visible Only)
                 if (visibleRegularAccounts.isNotEmpty()) {
@@ -248,42 +291,7 @@ fun ManageAccountsScreen(
                     }
 
                     items(visibleRegularAccounts) { account ->
-                        AccountItem(
-                            account = account,
-                            linkedCards = uiState.linkedCards[account.accountLast4] ?: emptyList(),
-                            isHidden = false,
-                            onToggleVisibility = {
-                                viewModel.toggleAccountVisibility(account.bankName, account.accountLast4)
-                            },
-                            onUpdateBalance = {
-                                selectedAccount = account.bankName to account.accountLast4
-                                selectedAccountEntity = account
-                                showUpdateDialog = true
-                            },
-                            onViewHistory = {
-                                onNavigateToBalanceHistory(account.bankName, account.accountLast4)
-                            },
-                            onUnlinkCard = { cardId ->
-                                viewModel.unlinkCard(cardId)
-                            },
-                            onDeleteAccount = {
-                                accountToDelete = account.bankName to account.accountLast4
-                                showDeleteConfirmDialog = true
-                            },
-                            onEditAccount = {
-                                accountToEdit = account
-                                showEditDialog = true
-                            },
-                            onSetProfile = { profileId ->
-                                viewModel.setAccountProfile(account.bankName, account.accountLast4, profileId)
-                            },
-                            onSetAlias = { alias ->
-                                viewModel.setAccountAlias(account.bankName, account.accountLast4, alias)
-                            },
-                            onSetLowBalanceThreshold = { threshold ->
-                                viewModel.setLowBalanceThreshold(account.bankName, account.accountLast4, threshold)
-                            }
-                        )
+                        accountRow(account, false)
                     }
                 }
 
@@ -297,35 +305,7 @@ fun ManageAccountsScreen(
                     }
 
                     items(visibleLoanAccounts) { account ->
-                        AccountItem(
-                            account = account,
-                            isHidden = false,
-                            onToggleVisibility = {
-                                viewModel.toggleAccountVisibility(account.bankName, account.accountLast4)
-                            },
-                            onUpdateBalance = {
-                                selectedAccount = account.bankName to account.accountLast4
-                                selectedAccountEntity = account
-                                showUpdateDialog = true
-                            },
-                            onViewHistory = {
-                                onNavigateToBalanceHistory(account.bankName, account.accountLast4)
-                            },
-                            onDeleteAccount = {
-                                accountToDelete = account.bankName to account.accountLast4
-                                showDeleteConfirmDialog = true
-                            },
-                            onEditAccount = {
-                                accountToEdit = account
-                                showEditDialog = true
-                            },
-                            onSetProfile = { profileId ->
-                                viewModel.setAccountProfile(account.bankName, account.accountLast4, profileId)
-                            },
-                            onSetAlias = { alias ->
-                                viewModel.setAccountAlias(account.bankName, account.accountLast4, alias)
-                            }
-                        )
+                        accountRow(account, false)
                     }
                 }
 
@@ -438,75 +418,12 @@ fun ManageAccountsScreen(
                     if (showHiddenAccounts) {
                         // Hidden Bank Accounts
                         items(hiddenRegularAccounts) { account ->
-                            AccountItem(
-                                account = account,
-                                linkedCards = uiState.linkedCards[account.accountLast4] ?: emptyList(),
-                                isHidden = true,
-                                onToggleVisibility = {
-                                    viewModel.toggleAccountVisibility(account.bankName, account.accountLast4)
-                                },
-                                onUpdateBalance = {
-                                    selectedAccount = account.bankName to account.accountLast4
-                                    selectedAccountEntity = account
-                                    showUpdateDialog = true
-                                },
-                                onViewHistory = {
-                                    onNavigateToBalanceHistory(account.bankName, account.accountLast4)
-                                },
-                                onUnlinkCard = { cardId ->
-                                    viewModel.unlinkCard(cardId)
-                                },
-                                onDeleteAccount = {
-                                    accountToDelete = account.bankName to account.accountLast4
-                                    showDeleteConfirmDialog = true
-                                },
-                                onEditAccount = {
-                                    accountToEdit = account
-                                    showEditDialog = true
-                                },
-                                onSetProfile = { profileId ->
-                                    viewModel.setAccountProfile(account.bankName, account.accountLast4, profileId)
-                                },
-                                onSetAlias = { alias ->
-                                    viewModel.setAccountAlias(account.bankName, account.accountLast4, alias)
-                                },
-                                onSetLowBalanceThreshold = { threshold ->
-                                    viewModel.setLowBalanceThreshold(account.bankName, account.accountLast4, threshold)
-                                }
-                            )
+                            accountRow(account, true)
                         }
 
                         // Hidden Loan Accounts
                         items(hiddenLoanAccounts) { account ->
-                            AccountItem(
-                                account = account,
-                                isHidden = true,
-                                onToggleVisibility = {
-                                    viewModel.toggleAccountVisibility(account.bankName, account.accountLast4)
-                                },
-                                onUpdateBalance = {
-                                    selectedAccount = account.bankName to account.accountLast4
-                                    selectedAccountEntity = account
-                                    showUpdateDialog = true
-                                },
-                                onViewHistory = {
-                                    onNavigateToBalanceHistory(account.bankName, account.accountLast4)
-                                },
-                                onDeleteAccount = {
-                                    accountToDelete = account.bankName to account.accountLast4
-                                    showDeleteConfirmDialog = true
-                                },
-                                onEditAccount = {
-                                    accountToEdit = account
-                                    showEditDialog = true
-                                },
-                                onSetProfile = { profileId ->
-                                    viewModel.setAccountProfile(account.bankName, account.accountLast4, profileId)
-                                },
-                                onSetAlias = { alias ->
-                                    viewModel.setAccountAlias(account.bankName, account.accountLast4, alias)
-                                }
-                            )
+                            accountRow(account, true)
                         }
 
                         // Hidden Credit Cards
@@ -622,9 +539,15 @@ fun ManageAccountsScreen(
         // guess — read from the account's own balance history (#792 review).
         var priorAccountType by remember(accountToEdit) { mutableStateOf(AccountType.SAVINGS) }
         LaunchedEffect(accountToEdit) {
-            canReclassify = !accountToEdit!!.isCreditCard &&
-                !viewModel.isManualAccount(accountToEdit!!.bankName, accountToEdit!!.accountLast4)
-            priorAccountType = viewModel.previousNonLoanAccountType(accountToEdit!!.bankName, accountToEdit!!.accountLast4)
+            val acct = accountToEdit ?: return@LaunchedEffect
+            val eligible = !acct.isCreditCard &&
+                viewModel.isLoanReclassifiable(acct.bankName, acct.accountLast4)
+            // Only look up the prior type when the toggle will actually be shown, and
+            // publish canReclassify last so the toggle never appears before it resolves.
+            if (eligible) {
+                priorAccountType = viewModel.previousNonLoanAccountType(acct.bankName, acct.accountLast4)
+            }
+            canReclassify = eligible
         }
         EditAccountDialog(
             account = accountToEdit!!,
@@ -699,6 +622,22 @@ fun ManageAccountsScreen(
             }
         )
     }
+}
+
+/** Overflow-menu "Edit" entry — the only path to Edit for a non-manual account,
+ *  whose primary button doesn't open it (#792). */
+@Composable
+private fun EditAccountMenuItem(onClick: () -> Unit) {
+    DropdownMenuItem(
+        text = { Text(stringResource(R.string.manage_accounts_action_edit)) },
+        onClick = onClick,
+        leadingIcon = {
+            Icon(
+                Icons.Default.Edit,
+                contentDescription = null
+            )
+        }
+    )
 }
 
 @Composable
@@ -929,17 +868,10 @@ private fun CreditCardItem(
                         // The primary button already opens Edit for a manual account
                         // (see onClick above) — this is the only path to it otherwise.
                         if (!isManualAccount) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.manage_accounts_action_edit)) },
+                            EditAccountMenuItem(
                                 onClick = {
                                     showMenu = false
                                     onEditAccount()
-                                },
-                                leadingIcon = {
-                                    Icon(
-                                        Icons.Default.Edit,
-                                        contentDescription = null
-                                    )
                                 }
                             )
                         }
@@ -1355,17 +1287,10 @@ private fun AccountItem(
                         // and the only way to reach the Loan-reclassification toggle
                         // for an SMS-tracked account (#792).
                         if (!isManualAccount) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.manage_accounts_action_edit)) },
+                            EditAccountMenuItem(
                                 onClick = {
                                     showMenu = false
                                     onEditAccount()
-                                },
-                                leadingIcon = {
-                                    Icon(
-                                        Icons.Default.Edit,
-                                        contentDescription = null
-                                    )
                                 }
                             )
                         }

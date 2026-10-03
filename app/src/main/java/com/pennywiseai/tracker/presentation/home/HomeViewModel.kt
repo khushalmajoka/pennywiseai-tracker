@@ -311,6 +311,29 @@ class HomeViewModel @Inject constructor(
         return filterAccountsByProfile(allBalances, hiddenAccounts, _uiState.value.selectedProfileId)
     }
 
+    /**
+     * Splits visible balances into the three Home buckets. Credit cards and loans
+     * (liabilities) stay out of the regular accounts (which also hides zero-balance
+     * ones). Loans get their own bucket rather than joining credit cards: the
+     * creditLimit/available-credit math is Credit-Card-specific and doesn't apply to
+     * a loan (#792).
+     */
+    private class AccountBuckets(
+        val regular: List<AccountBalanceEntity>,
+        val creditCards: List<AccountBalanceEntity>,
+        val loans: List<AccountBalanceEntity>
+    ) {
+        val currencies: List<String> get() = (regular + creditCards + loans).map { it.currency }.distinct()
+    }
+
+    private fun bucketAccounts(balances: List<AccountBalanceEntity>) = AccountBuckets(
+        regular = balances.filter {
+            !it.isCreditCard && it.getAccountType() != AccountType.LOAN && it.balance != BigDecimal.ZERO
+        },
+        creditCards = balances.filter { it.isCreditCard },
+        loans = balances.filter { it.getAccountType() == AccountType.LOAN }
+    )
+
     private fun computeBreakdownByCurrency(
         transactions: List<TransactionEntity>,
         countCreditAsExpense: Boolean = false
@@ -465,21 +488,13 @@ class HomeViewModel @Inject constructor(
 
                 // Filter out hidden accounts and apply business filter
                 val balances = filterVisibleBalances(allBalances, hiddenAccounts)
-                // Separate credit cards and loans (liabilities) from regular accounts
-                // (hide zero balance accounts). Loans get their own bucket rather than
-                // joining creditCards: creditLimit/available-credit math below is
-                // Credit-Card-specific and doesn't apply to a loan (#792).
-                val rawRegularAccounts = balances.filter {
-                    !it.isCreditCard && it.getAccountType() != AccountType.LOAN && it.balance != BigDecimal.ZERO
-                }
-                val rawCreditCards = balances.filter { it.isCreditCard }
-                val rawLoanAccounts = balances.filter { it.getAccountType() == AccountType.LOAN }
+                val buckets = bucketAccounts(balances)
+                val rawRegularAccounts = buckets.regular
+                val rawCreditCards = buckets.creditCards
+                val rawLoanAccounts = buckets.loans
 
                 // Check if we have multiple currencies and refresh exchange rates if needed
-                val accountCurrencies = rawRegularAccounts.map { it.currency }.distinct()
-                val creditCardCurrencies = rawCreditCards.map { it.currency }.distinct()
-                val loanAccountCurrencies = rawLoanAccounts.map { it.currency }.distinct()
-                val allAccountCurrencies = (accountCurrencies + creditCardCurrencies + loanAccountCurrencies).distinct()
+                val allAccountCurrencies = buckets.currencies
 
                 if (allAccountCurrencies.size > 1 && allAccountCurrencies.isNotEmpty()) {
                     currencyConversionService.refreshExchangeRatesForAccount(allAccountCurrencies)
@@ -970,11 +985,10 @@ class HomeViewModel @Inject constructor(
 
             val visibleBalances = filterVisibleBalances(allBalances, hiddenAccounts)
 
-            val rawRegularAccounts = visibleBalances.filter {
-                !it.isCreditCard && it.getAccountType() != AccountType.LOAN && it.balance != BigDecimal.ZERO
-            }
-            val rawCreditCards = visibleBalances.filter { it.isCreditCard }
-            val rawLoanAccounts = visibleBalances.filter { it.getAccountType() == AccountType.LOAN }
+            val buckets = bucketAccounts(visibleBalances)
+            val rawRegularAccounts = buckets.regular
+            val rawCreditCards = buckets.creditCards
+            val rawLoanAccounts = buckets.loans
 
             val selectedCurrency = _uiState.value.selectedCurrency
             val isUnified = _uiState.value.isUnifiedMode
@@ -1082,16 +1096,12 @@ class HomeViewModel @Inject constructor(
             val hiddenAccounts = sharedPrefs.getStringSet("hidden_accounts", emptySet()) ?: emptySet()
 
             val balances = filterVisibleBalances(allBalances, hiddenAccounts)
-            val rawRegularAccounts = balances.filter {
-                !it.isCreditCard && it.getAccountType() != AccountType.LOAN && it.balance != BigDecimal.ZERO
-            }
-            val rawCreditCards = balances.filter { it.isCreditCard }
-            val rawLoanAccounts = balances.filter { it.getAccountType() == AccountType.LOAN }
+            val buckets = bucketAccounts(balances)
+            val rawRegularAccounts = buckets.regular
+            val rawCreditCards = buckets.creditCards
+            val rawLoanAccounts = buckets.loans
 
-            val accountCurrencies = rawRegularAccounts.map { it.currency }.distinct()
-            val creditCardCurrencies = rawCreditCards.map { it.currency }.distinct()
-            val loanAccountCurrencies = rawLoanAccounts.map { it.currency }.distinct()
-            val allAccountCurrencies = (accountCurrencies + creditCardCurrencies + loanAccountCurrencies).distinct()
+            val allAccountCurrencies = buckets.currencies
 
             if (allAccountCurrencies.size > 1 && allAccountCurrencies.isNotEmpty()) {
                 currencyConversionService.refreshExchangeRatesForAccount(allAccountCurrencies)

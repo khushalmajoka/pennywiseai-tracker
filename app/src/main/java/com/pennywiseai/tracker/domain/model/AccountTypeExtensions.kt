@@ -83,6 +83,15 @@ fun AccountType.icon(): ImageVector = when (this) {
 fun AccountBalanceEntity.isLiability(): Boolean = getAccountType().isLiability()
 
 /**
+ * Two accounts can only merge if neither is a liability of a different kind than
+ * the other (Credit can't merge with Loan, and neither with a spendable account —
+ * mixing debt and asset balance history would corrupt both). Used by both the
+ * merge picker and ManageAccountsViewModel.mergeAccounts.
+ */
+fun sameLiabilityType(a: AccountBalanceEntity, b: AccountBalanceEntity): Boolean =
+    a.isLiability() == b.isLiability() && (!a.isLiability() || a.getAccountType() == b.getAccountType())
+
+/**
  * Resolves the `isCreditCard` flag to store on a new balance row from SMS
  * ingestion: [smsSaysCredit] (this SMS's own parser signal) OR'd with the
  * existing account's stored flag — UNLESS the account has been manually set

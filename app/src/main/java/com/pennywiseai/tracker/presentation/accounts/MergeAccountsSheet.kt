@@ -24,7 +24,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import com.pennywiseai.tracker.domain.model.getAccountType
-import com.pennywiseai.tracker.domain.model.isLiability
+import com.pennywiseai.tracker.domain.model.sameLiabilityType
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -292,16 +292,8 @@ private fun AccountPickerRow(
     }
 }
 
-/** Two accounts can only merge if neither is a liability of a different kind
- *  than the other (Credit can't merge with Loan, and neither with a spendable
- *  account — mixing debt and asset balance history would corrupt both).
- *  Shared with [ManageAccountsViewModel.mergeAccounts], which enforces the
- *  same rule before actually executing the merge. */
-fun sameLiabilityType(a: AccountBalanceEntity, b: AccountBalanceEntity): Boolean =
-    a.isLiability() == b.isLiability() && (!a.isLiability() || a.getAccountType() == b.getAccountType())
-
 /** Two accounts can be merged when they share currency and liability type. */
-fun compatible(a: AccountBalanceEntity, b: AccountBalanceEntity): Boolean {
+private fun compatible(a: AccountBalanceEntity, b: AccountBalanceEntity): Boolean {
     val sameAccount = a.bankName.equals(b.bankName, ignoreCase = true) &&
         a.accountLast4 == b.accountLast4
     if (sameAccount) return false
