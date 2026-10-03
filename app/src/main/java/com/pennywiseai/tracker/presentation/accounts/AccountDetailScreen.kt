@@ -34,6 +34,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.pennywiseai.tracker.data.database.entity.AccountBalanceEntity
+import com.pennywiseai.tracker.domain.model.getAccountType
 import com.pennywiseai.tracker.data.database.entity.TransactionEntity
 import com.pennywiseai.tracker.data.database.entity.TransactionType
 import com.pennywiseai.tracker.ui.components.*
@@ -101,6 +102,7 @@ fun AccountDetailScreen(
                 CurrentBalanceCard(
                     balance = uiState.currentBalance?.balance ?: BigDecimal.ZERO,
                     creditLimit = uiState.currentBalance?.creditLimit,
+                    isLoanAccount = uiState.currentBalance?.getAccountType() == AccountType.LOAN,
                     bankName = uiState.bankName,
                     accountLast4 = uiState.accountLast4,
                     primaryCurrency = uiState.primaryCurrency,
@@ -265,6 +267,7 @@ private fun ExpandableBalanceChart(
 private fun CurrentBalanceCard(
     balance: BigDecimal,
     creditLimit: BigDecimal? = null,
+    isLoanAccount: Boolean = false,
     bankName: String,
     accountLast4: String,
     primaryCurrency: String,
@@ -341,9 +344,12 @@ private fun CurrentBalanceCard(
                     }
                 }
             } else {
-                // Regular account layout
+                // Regular account layout (also covers Loan, relabeled below)
                 Text(
-                    text = stringResource(R.string.account_detail_current_balance),
+                    text = stringResource(
+                        if (isLoanAccount) R.string.manage_accounts_outstanding
+                        else R.string.account_detail_current_balance
+                    ),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -362,7 +368,11 @@ private fun CurrentBalanceCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
-                    imageVector = if (isCreditCard) Icons.Default.CreditCard else Icons.Default.AccountBalance,
+                    imageVector = when {
+                        isCreditCard -> Icons.Default.CreditCard
+                        isLoanAccount -> Icons.Default.RequestQuote
+                        else -> Icons.Default.AccountBalance
+                    },
                     contentDescription = null,
                     modifier = Modifier.size(Dimensions.Icon.small),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant

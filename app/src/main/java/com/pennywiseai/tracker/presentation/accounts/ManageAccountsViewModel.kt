@@ -602,7 +602,7 @@ class ManageAccountsViewModel @Inject constructor(
                     }
                     return@launch
                 }
-                if (source.isLiability() != target.isLiability()) {
+                if (!sameLiabilityType(source, target)) {
                     _uiState.update {
                         it.copy(errorMessage = UiText.Res(R.string.manage_accounts_msg_merge_card_mismatch))
                     }
@@ -760,6 +760,9 @@ class ManageAccountsViewModel @Inject constructor(
      */
     suspend fun isManualAccount(bankName: String, accountLast4: String): Boolean =
         accountBalanceRepository.isManualAccount(bankName, accountLast4)
+
+    suspend fun previousNonLoanAccountType(bankName: String, accountLast4: String): AccountType =
+        accountBalanceRepository.previousNonLoanAccountType(bankName, accountLast4)
 
     fun editAccount(
         oldBankName: String,

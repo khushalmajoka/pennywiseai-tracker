@@ -1,7 +1,13 @@
 package com.pennywiseai.tracker.domain.model
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountBalance
+import androidx.compose.material.icons.filled.CreditCard
+import androidx.compose.material.icons.filled.Money
+import androidx.compose.material.icons.filled.RequestQuote
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import com.pennywiseai.tracker.R
 import com.pennywiseai.tracker.presentation.accounts.AccountType
@@ -62,4 +68,28 @@ fun AccountType.displayName(): String = stringResource(
  */
 fun AccountType.isLiability(): Boolean = this == AccountType.CREDIT || this == AccountType.LOAN
 
+/**
+ * Shared icon for an account type — a Cash/Credit/Loan-specific icon, plain
+ * bank icon otherwise. Several account pickers duplicated this exact mapping
+ * independently (#792 review); new ones should call this instead.
+ */
+fun AccountType.icon(): ImageVector = when (this) {
+    AccountType.CASH -> Icons.Default.Money
+    AccountType.CREDIT -> Icons.Default.CreditCard
+    AccountType.LOAN -> Icons.Default.RequestQuote
+    AccountType.SAVINGS, AccountType.CURRENT -> Icons.Default.AccountBalance
+}
+
 fun AccountBalanceEntity.isLiability(): Boolean = getAccountType().isLiability()
+
+/**
+ * Resolves the `isCreditCard` flag to store on a new balance row from SMS
+ * ingestion: [smsSaysCredit] (this SMS's own parser signal) OR'd with the
+ * existing account's stored flag — UNLESS the account has been manually set
+ * to LOAN, which always wins so a later credit-worded SMS can't silently
+ * re-flip a reclassified Loan account back into the Credit Cards bucket
+ * (#792 review). Shared by [SmsTransactionProcessor] and
+ * [OptimizedSmsReaderWorker], the two independent SMS-ingestion paths.
+ */
+fun resolveIsCreditCardForMath(smsSaysCredit: Boolean, existing: AccountBalanceEntity?): Boolean =
+    existing?.getAccountType() != AccountType.LOAN && (smsSaysCredit || existing?.isCreditCard == true)

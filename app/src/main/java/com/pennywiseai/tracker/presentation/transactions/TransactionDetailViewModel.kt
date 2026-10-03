@@ -25,7 +25,9 @@ import com.pennywiseai.tracker.data.repository.LoanRepository
 import com.pennywiseai.tracker.data.repository.MerchantAliasRepository
 import com.pennywiseai.tracker.data.repository.MerchantMappingRepository
 import com.pennywiseai.tracker.utils.CurrencyFormatter
+import com.pennywiseai.tracker.domain.model.getAccountType
 import com.pennywiseai.tracker.domain.model.rule.ActionType
+import com.pennywiseai.tracker.presentation.accounts.AccountType
 import com.pennywiseai.tracker.domain.model.rule.ConditionOperator
 import com.pennywiseai.tracker.domain.model.rule.RuleAction
 import com.pennywiseai.tracker.domain.model.rule.RuleCondition
@@ -79,6 +81,9 @@ class TransactionDetailViewModel @Inject constructor(
 
     private val _accountProfileId = MutableStateFlow<Long?>(null)
     val accountProfileId: StateFlow<Long?> = _accountProfileId.asStateFlow()
+
+    private val _isLoanAccount = MutableStateFlow(false)
+    val isLoanAccount: StateFlow<Boolean> = _isLoanAccount.asStateFlow()
 
     private val _isEditMode = MutableStateFlow(false)
     val isEditMode: StateFlow<Boolean> = _isEditMode.asStateFlow()
@@ -283,7 +288,8 @@ class TransactionDetailViewModel @Inject constructor(
                         bankName = balance.bankName,
                         accountLast4 = balance.accountLast4,
                         displayName = balance.displayLabel,
-                        isCreditCard = balance.isCreditCard
+                        isCreditCard = balance.isCreditCard,
+                        isLoan = balance.getAccountType() == AccountType.LOAN
                     )
                 }
                 .distinctBy { "${it.bankName}_${it.accountLast4}" }
@@ -298,7 +304,8 @@ class TransactionDetailViewModel @Inject constructor(
         val bankName: String,
         val accountLast4: String,
         val displayName: String,
-        val isCreditCard: Boolean
+        val isCreditCard: Boolean,
+        val isLoan: Boolean = false
     )
     
     fun loadTransaction(transactionId: Long) {
@@ -375,6 +382,7 @@ class TransactionDetailViewModel @Inject constructor(
         val accountLast4 = transaction.accountNumber ?: return
         val balance = accountBalanceRepository.getLatestBalance(bankName, accountLast4)
         _accountProfileId.value = balance?.profileId
+        _isLoanAccount.value = balance?.getAccountType() == AccountType.LOAN
     }
 
     private suspend fun loadSplits(transactionId: Long) {

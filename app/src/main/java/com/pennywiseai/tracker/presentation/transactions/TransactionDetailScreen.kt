@@ -149,6 +149,7 @@ fun TransactionDetailScreen(
     val recentPersonNames by viewModel.recentPersonNames.collectAsStateWithLifecycle()
 // Account profile state
     val accountProfileId by viewModel.accountProfileId.collectAsStateWithLifecycle()
+    val isLoanAccount by viewModel.isLoanAccount.collectAsStateWithLifecycle()
 
     // Receipt state
     val receiptUri by viewModel.receiptUri.collectAsStateWithLifecycle()
@@ -344,6 +345,7 @@ fun TransactionDetailScreen(
                 onNavigateToLoanDetail = onNavigateToLoanDetail,
                 onUnmarkLoanClick = { showUnmarkLoanConfirm = true },
                 accountProfileId = accountProfileId,
+                isLoanAccount = isLoanAccount,
                 hazeState = hazeState,
                 modifier = Modifier.padding(paddingValues)
             )
@@ -487,6 +489,7 @@ private fun TransactionDetailContent(
     onNavigateToLoanDetail: (Long) -> Unit,
     onUnmarkLoanClick: () -> Unit,
     accountProfileId: Long?,
+    isLoanAccount: Boolean,
     hazeState: HazeState,
     modifier: Modifier = Modifier
 ) {
@@ -517,6 +520,7 @@ private fun TransactionDetailContent(
                 updateExistingTransactions = updateExistingTransactions,
                 existingTransactionCount = existingTransactionCount,
                 accountProfileId = accountProfileId,
+                isLoanAccount = isLoanAccount,
                 viewModel = viewModel,
                 splits = splits,
                 showSplitEditor = showSplitEditor
@@ -1364,6 +1368,7 @@ private fun EditableExtractedInfoCard(
     updateExistingTransactions: Boolean,
     existingTransactionCount: Int,
     accountProfileId: Long?,
+    isLoanAccount: Boolean,
     viewModel: TransactionDetailViewModel,
     splits: List<SplitItem>,
     showSplitEditor: Boolean
@@ -1466,7 +1471,7 @@ private fun EditableExtractedInfoCard(
                 }
             }
 
-            if (transaction.transactionType == TransactionType.INCOME) {
+            if (transaction.transactionType == TransactionType.INCOME && !isLoanAccount) {
                 BudgetImpactSection(viewModel = viewModel)
             }
         }
@@ -2094,8 +2099,11 @@ private fun AccountNumberField(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 Icon(
-                                    if (account.isCreditCard) Icons.Default.CreditCard 
-                                    else Icons.Default.AccountBalance,
+                                    when {
+                                        account.isCreditCard -> Icons.Default.CreditCard
+                                        account.isLoan -> Icons.Default.RequestQuote
+                                        else -> Icons.Default.AccountBalance
+                                    },
                                     contentDescription = null,
                                     modifier = Modifier.size(Dimensions.Icon.medium),
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant

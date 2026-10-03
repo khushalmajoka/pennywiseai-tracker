@@ -192,10 +192,20 @@ interface AccountBalanceDao {
     @Delete
     suspend fun deleteBalance(balance: AccountBalanceEntity)
     
-    @Query("""SELECT * FROM account_balances 
+    @Query("""SELECT * FROM account_balances
         WHERE bank_name = :bankName AND account_last4 = :accountLast4
         ORDER BY timestamp DESC""")
     suspend fun getBalanceHistoryForAccount(bankName: String, accountLast4: String): List<AccountBalanceEntity>
+
+    /** Most recent balance row whose account_type isn't LOAN (null counts as
+     *  non-LOAN — LOAN is only ever set explicitly), for
+     *  [com.pennywiseai.tracker.data.repository.AccountBalanceRepository.previousNonLoanAccountType],
+     *  which only needs the single most recent match, not the full history. */
+    @Query("""SELECT * FROM account_balances
+        WHERE bank_name = :bankName AND account_last4 = :accountLast4
+            AND (account_type IS NULL OR account_type != 'LOAN')
+        ORDER BY timestamp DESC LIMIT 1""")
+    suspend fun getLatestNonLoanBalance(bankName: String, accountLast4: String): AccountBalanceEntity?
     
     @Query("DELETE FROM account_balances WHERE id = :id")
     suspend fun deleteBalanceById(id: Long)

@@ -6,6 +6,7 @@ import com.pennywiseai.tracker.data.database.entity.TransactionEntity
 import com.pennywiseai.tracker.data.database.entity.TransactionType
 import com.pennywiseai.tracker.data.repository.AccountBalanceRepository
 import com.pennywiseai.tracker.data.repository.SubscriptionRepository
+import com.pennywiseai.tracker.domain.model.isLiability
 import com.pennywiseai.tracker.data.repository.TransactionRepository
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -21,7 +22,12 @@ import javax.inject.Inject
  *  - EXPENSE — most expense subs auto-create a transaction from an SMS
  *    (UPI mandate, card auto-debit). This use case covers the manual-pay
  *    subset: cash, in-person card swipes, off-platform payments. Creates a
- *    TransactionType.EXPENSE row.
+ *    TransactionType.EXPENSE row — UNLESS the funding account is a liability
+ *    (Loan/Credit Card), in which case it's booked as INCOME instead, since
+ *    for those accounts INCOME is what *reduces* the owed balance (#792). The
+ *    category/description/hash still reflect the subscription's real EXPENSE
+ *    direction; only the stored TransactionType (and therefore the balance
+ *    math) is flipped.
  *  - INCOME — already auto-created by GenerateIncomeAutopayUseCase on
  *    schedule. User-initiated marks here let early-payers confirm before
  *    the next scan; idempotent dedup ensures no double-count.
@@ -102,7 +108,15 @@ class MarkSubscriptionPaidUseCase @Inject constructor(
             return Result.AlreadyMarked(nextDate)
         }
 
-        val txnType = if (isIncome) TransactionType.INCOME else TransactionType.EXPENSE
+        // A liability account's balance is "what's owed" — paying it down needs the
+        // same debt-reducing TransactionType a normal expense would get backwards
+        // (BalanceCalculator.signedBalanceEffect treats EXPENSE as *raising* owed on
+        // a Loan/Credit Card). An EXPENSE-direction subscription linked to one of
+        // those (e.g. a loan EMI tracked against its Loan account) must still book
+        // as INCOME so marking it paid brings the balance down, not up (#792).
+        val isLiabilityFunding = sub.bankName != null && sub.accountLast4 != null &&
+            accountBalanceRepository.getLatestBalance(sub.bankName, sub.accountLast4)?.isLiability() == true
+        val txnType = if (isIncome || isLiabilityFunding) TransactionType.INCOME else TransactionType.EXPENSE
         val txnDate = paymentDate.atStartOfDay()
         val transaction = TransactionEntity(
             amount = sub.amount,

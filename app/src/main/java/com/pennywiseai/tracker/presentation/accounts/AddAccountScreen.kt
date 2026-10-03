@@ -1,6 +1,7 @@
 package com.pennywiseai.tracker.presentation.accounts
 
 import com.pennywiseai.tracker.R
+import com.pennywiseai.tracker.domain.model.icon
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -167,12 +168,7 @@ fun AddAccountScreen(
                         .menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = true),
                     leadingIcon = {
                         Icon(
-                            imageVector = when (formState.accountType) {
-                                AccountType.SAVINGS, AccountType.CURRENT -> Icons.Default.AccountBalance
-                                AccountType.CREDIT -> Icons.Default.CreditCard
-                                AccountType.CASH -> Icons.Default.Money
-                                AccountType.LOAN -> Icons.Default.RequestQuote
-                            },
+                            imageVector = formState.accountType.icon(),
                             contentDescription = null
                         )
                     },
@@ -197,12 +193,7 @@ fun AddAccountScreen(
                             },
                             leadingIcon = {
                                 Icon(
-                                    imageVector = when (type) {
-                                        AccountType.SAVINGS, AccountType.CURRENT -> Icons.Default.AccountBalance
-                                        AccountType.CREDIT -> Icons.Default.CreditCard
-                                        AccountType.CASH -> Icons.Default.Money
-                                        AccountType.LOAN -> Icons.Default.RequestQuote
-                                    },
+                                    imageVector = type.icon(),
                                     contentDescription = null
                                 )
                             }

@@ -27,6 +27,7 @@ import com.pennywiseai.tracker.data.preferences.IgnoredAccountsStore
 import com.pennywiseai.tracker.data.preferences.UserPreferencesRepository
 import com.pennywiseai.tracker.data.repository.*
 import com.pennywiseai.tracker.domain.model.isLiability
+import com.pennywiseai.tracker.domain.model.resolveIsCreditCardForMath
 import com.pennywiseai.tracker.domain.model.rule.TransactionRule
 import com.pennywiseai.tracker.domain.model.rule.tagChanges
 import com.pennywiseai.tracker.domain.repository.RuleRepository
@@ -853,10 +854,11 @@ class OptimizedSmsReaderWorker @AssistedInject constructor(
 
         val existing = accountBalanceRepository.getLatestBalance(parsed.bankName, targetAccount)
 
-        val resolvedIsCreditCard = isCreditCard || (existing?.isCreditCard ?: false)
         // A LOAN account moves like a credit card (credit reduces owed, debit
         // increases it) but must NOT be stored as isCreditCard=true — that flag
-        // drives Credit-Card-only UI (limit, statement day). Widen only the math input.
+        // drives Credit-Card-only UI (limit, statement day). See
+        // resolveIsCreditCardForMath's doc for why LOAN overrides the SMS signal.
+        val resolvedIsCreditCard = resolveIsCreditCardForMath(isCreditCard, existing)
         val isLiabilityForMath = resolvedIsCreditCard || existing?.isLiability() == true
 
         val newBalance = BalanceCalculator.calculateNewBalance(

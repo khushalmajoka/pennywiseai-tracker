@@ -197,17 +197,43 @@ class AddViewModel @Inject constructor(
             }
             // Budget Impact doesn't apply to a Loan account (debt reduction, not a
             // refund of spending or extra spending room) and its section is hidden
-            // there — drop any leftover selection so it can't silently persist on a
-            // Loan transaction the user can no longer see or edit it on (#792).
-            val budgetImpactType = if (isLoanAccount) null else currentState.budgetImpactType
-            val budgetCategory = if (isLoanAccount) null else currentState.budgetCategory
+            // there — stash any existing selection on the way in and restore it on
+            // the way back out, so picking a Loan account by mistake doesn't lose
+            // the user's choice (#792).
+            val wasLoanAccount = currentState.selectedAccount?.getAccountType() == AccountType.LOAN
+            val budgetImpactType: BudgetImpactType?
+            val budgetCategory: String?
+            val stashedBudgetImpactType: BudgetImpactType?
+            val stashedBudgetCategory: String?
+            when {
+                isLoanAccount && !wasLoanAccount -> {
+                    stashedBudgetImpactType = currentState.budgetImpactType
+                    stashedBudgetCategory = currentState.budgetCategory
+                    budgetImpactType = null
+                    budgetCategory = null
+                }
+                !isLoanAccount && wasLoanAccount -> {
+                    budgetImpactType = currentState.stashedBudgetImpactType
+                    budgetCategory = currentState.stashedBudgetCategory
+                    stashedBudgetImpactType = null
+                    stashedBudgetCategory = null
+                }
+                else -> {
+                    budgetImpactType = currentState.budgetImpactType
+                    budgetCategory = currentState.budgetCategory
+                    stashedBudgetImpactType = currentState.stashedBudgetImpactType
+                    stashedBudgetCategory = currentState.stashedBudgetCategory
+                }
+            }
             currentState.copy(
                 selectedAccount = account,
                 currency = currency,
                 merchantError = merchantError,
                 transactionType = transactionType,
                 budgetImpactType = budgetImpactType,
-                budgetCategory = budgetCategory
+                budgetCategory = budgetCategory,
+                stashedBudgetImpactType = stashedBudgetImpactType,
+                stashedBudgetCategory = stashedBudgetCategory
             )
         }
     }
@@ -689,7 +715,12 @@ data class TransactionUiState(
     val currency: String = "INR",
     val receiptUri: Uri? = null,
     val budgetImpactType: BudgetImpactType? = null,
-    val budgetCategory: String? = null
+    val budgetCategory: String? = null,
+    // Set only while [selectedAccount] is a Loan account, to restore the user's
+    // Budget Impact choice if they switch back to a non-Loan account after
+    // picking a Loan one by mistake (#792 review).
+    val stashedBudgetImpactType: BudgetImpactType? = null,
+    val stashedBudgetCategory: String? = null
 ) {
     val isValid: Boolean
         get() {

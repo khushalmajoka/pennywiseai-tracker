@@ -8,7 +8,9 @@ import com.pennywiseai.tracker.data.database.entity.AccountBalanceEntity
 import com.pennywiseai.tracker.data.database.entity.ProfileEntity
 import com.pennywiseai.tracker.data.database.entity.TransactionEntity
 import com.pennywiseai.tracker.data.database.entity.TransactionType
+import com.pennywiseai.tracker.domain.model.getAccountType
 import com.pennywiseai.tracker.domain.model.isLiability
+import com.pennywiseai.tracker.presentation.accounts.AccountType
 import com.pennywiseai.tracker.utils.BalanceCalculator
 import kotlinx.coroutines.flow.Flow
 import java.math.BigDecimal
@@ -609,6 +611,17 @@ open class AccountBalanceRepository @Inject constructor(
         // account that merely had a one-off "Update balance" override (latest row MANUAL)
         // would be permanently reclassified as manual on its first write. (Greptile #487)
         return accountBalanceDao.countSmsSourcedBalances(bankName, accountLast4) == 0
+    }
+
+    /**
+     * The account's type before it was ever reclassified to LOAN, read from balance
+     * history (most recent non-LOAN row). Falls back to SAVINGS — the same fallback
+     * `toAccountType()` uses for an unset type — if the account has no non-LOAN history.
+     */
+    suspend fun previousNonLoanAccountType(bankName: String, accountLast4: String): AccountType {
+        return accountBalanceDao.getLatestNonLoanBalance(bankName, accountLast4)
+            ?.getAccountType()
+            ?: AccountType.SAVINGS
     }
 
     /**

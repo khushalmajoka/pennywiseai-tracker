@@ -292,14 +292,19 @@ private fun AccountPickerRow(
     }
 }
 
-/** Two accounts can be merged when they share currency and liability status
- *  (Credit/Loan can't merge with a spendable account — mixing debt and asset
- *  balance history would corrupt both). */
-private fun compatible(a: AccountBalanceEntity, b: AccountBalanceEntity): Boolean {
+/** Two accounts can only merge if neither is a liability of a different kind
+ *  than the other (Credit can't merge with Loan, and neither with a spendable
+ *  account — mixing debt and asset balance history would corrupt both).
+ *  Shared with [ManageAccountsViewModel.mergeAccounts], which enforces the
+ *  same rule before actually executing the merge. */
+fun sameLiabilityType(a: AccountBalanceEntity, b: AccountBalanceEntity): Boolean =
+    a.isLiability() == b.isLiability() && (!a.isLiability() || a.getAccountType() == b.getAccountType())
+
+/** Two accounts can be merged when they share currency and liability type. */
+fun compatible(a: AccountBalanceEntity, b: AccountBalanceEntity): Boolean {
     val sameAccount = a.bankName.equals(b.bankName, ignoreCase = true) &&
         a.accountLast4 == b.accountLast4
     if (sameAccount) return false
     if (!a.currency.equals(b.currency, ignoreCase = true)) return false
-    if (a.isLiability() != b.isLiability()) return false
-    return true
+    return sameLiabilityType(a, b)
 }

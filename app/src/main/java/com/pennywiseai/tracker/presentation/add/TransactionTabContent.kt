@@ -37,6 +37,7 @@ import com.pennywiseai.tracker.data.database.entity.BudgetImpactType
 import com.pennywiseai.tracker.data.database.entity.TransactionType
 import com.pennywiseai.tracker.domain.model.displayName
 import com.pennywiseai.tracker.domain.model.getAccountType
+import com.pennywiseai.tracker.domain.model.icon
 import com.pennywiseai.tracker.presentation.accounts.AccountType
 import com.pennywiseai.tracker.ui.components.TagInputField
 import com.pennywiseai.tracker.ui.theme.*
@@ -103,13 +104,7 @@ private fun AccountSelectorCard(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Icon(
-                when (account?.getAccountType()) {
-                    AccountType.CASH -> Icons.Default.Money
-                    AccountType.CREDIT -> Icons.Default.CreditCard
-                    AccountType.LOAN -> Icons.Default.RequestQuote
-                    AccountType.SAVINGS, AccountType.CURRENT -> Icons.Default.AccountBalance
-                    null -> Icons.Default.AccountBalance
-                },
+                account?.getAccountType()?.icon() ?: Icons.Default.AccountBalance,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -639,11 +634,7 @@ fun TransactionTabContent(
                             },
                             leadingIcon = {
                                 Icon(
-                                    when (accountType) {
-                                        AccountType.CASH -> Icons.Default.Money
-                                        AccountType.CREDIT -> Icons.Default.CreditCard
-                                        else -> Icons.Default.AccountBalance
-                                    },
+                                    accountType.icon(),
                                     contentDescription = null
                                 )
                             },

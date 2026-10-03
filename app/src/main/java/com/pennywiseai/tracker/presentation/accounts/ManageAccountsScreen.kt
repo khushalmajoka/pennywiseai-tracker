@@ -222,8 +222,7 @@ fun ManageAccountsScreen(
                 // Accounts" rather than "Loans", which already names the existing
                 // person-to-person Loans feature (#792).
                 val visibleRegularAccounts = uiState.accounts.filter {
-                    !it.isCreditCard && it.getAccountType() != AccountType.LOAN &&
-                        !viewModel.isAccountHidden(it.bankName, it.accountLast4)
+                    !it.isLiability() && !viewModel.isAccountHidden(it.bankName, it.accountLast4)
                 }
                 val visibleCreditCards = uiState.accounts.filter {
                     it.isCreditCard && !viewModel.isAccountHidden(it.bankName, it.accountLast4)
@@ -232,8 +231,7 @@ fun ManageAccountsScreen(
                     it.getAccountType() == AccountType.LOAN && !viewModel.isAccountHidden(it.bankName, it.accountLast4)
                 }
                 val hiddenRegularAccounts = uiState.accounts.filter {
-                    !it.isCreditCard && it.getAccountType() != AccountType.LOAN &&
-                        viewModel.isAccountHidden(it.bankName, it.accountLast4)
+                    !it.isLiability() && viewModel.isAccountHidden(it.bankName, it.accountLast4)
                 }
                 val hiddenCreditCards = uiState.accounts.filter {
                     it.isCreditCard && viewModel.isAccountHidden(it.bankName, it.accountLast4)
@@ -241,7 +239,7 @@ fun ManageAccountsScreen(
                 val hiddenLoanAccounts = uiState.accounts.filter {
                     it.getAccountType() == AccountType.LOAN && viewModel.isAccountHidden(it.bankName, it.accountLast4)
                 }
-                val allRegularAccounts = uiState.accounts.filter { !it.isCreditCard && it.getAccountType() != AccountType.LOAN }
+                val allRegularAccounts = uiState.accounts.filter { !it.isLiability() }
                 
                 // Regular Bank Accounts Section (Visible Only)
                 if (visibleRegularAccounts.isNotEmpty()) {
@@ -620,13 +618,18 @@ fun ManageAccountsScreen(
         // recomputes on the opening row's OWN liability status, not the latest
         // row's, so a type change here wouldn't actually change its balance math (#792).
         var canReclassify by remember(accountToEdit) { mutableStateOf(false) }
+        // Toggling the Loan switch off restores this type rather than a hardcoded
+        // guess — read from the account's own balance history (#792 review).
+        var priorAccountType by remember(accountToEdit) { mutableStateOf(AccountType.SAVINGS) }
         LaunchedEffect(accountToEdit) {
             canReclassify = !accountToEdit!!.isCreditCard &&
                 !viewModel.isManualAccount(accountToEdit!!.bankName, accountToEdit!!.accountLast4)
+            priorAccountType = viewModel.previousNonLoanAccountType(accountToEdit!!.bankName, accountToEdit!!.accountLast4)
         }
         EditAccountDialog(
             account = accountToEdit!!,
             canReclassifyToLoan = canReclassify,
+            priorAccountType = priorAccountType,
             onDismiss = {
                 showEditDialog = false
                 accountToEdit = null
@@ -2220,13 +2223,15 @@ private fun DeleteAccountConfirmDialog(
 private fun EditAccountDialog(
     account: com.pennywiseai.tracker.data.database.entity.AccountBalanceEntity,
     canReclassifyToLoan: Boolean = false,
+    priorAccountType: AccountType = AccountType.SAVINGS,
     onDismiss: () -> Unit,
     onConfirm: (bankName: String, balance: BigDecimal, creditLimit: BigDecimal?, currency: String, accountType: AccountType?) -> Unit
 ) {
     var bankNameText by remember { mutableStateOf(account.bankName) }
     var balanceText by remember { mutableStateOf(account.balance.toString()) }
     var creditLimitText by remember { mutableStateOf(account.creditLimit?.toString() ?: "") }
-    var isLoanAccount by remember { mutableStateOf(account.getAccountType() == AccountType.LOAN) }
+    val originalIsLoanAccount = remember(account) { account.getAccountType() == AccountType.LOAN }
+    var isLoanAccount by remember { mutableStateOf(originalIsLoanAccount) }
     // Pre-fill with the *resolved* currency (what the account actually displays), not
     // the raw stored value — an SMS-tracked non-INR account stores the INR default but
     // shows the parser currency. Seeding from the raw value would let an unrelated edit
@@ -2515,9 +2520,15 @@ private fun EditAccountDialog(
                     val creditLimit = if (account.isCreditCard) {
                         creditLimitText.toBigDecimalOrNull()
                     } else null
-                    val newAccountType = if (canReclassifyToLoan) {
-                        if (isLoanAccount) AccountType.LOAN else account.getAccountType().takeIf { it != AccountType.LOAN } ?: AccountType.SAVINGS
-                    } else null
+                    // Only send a type change when the Loan toggle was actually touched —
+                    // otherwise priorAccountType (async-resolved, defaults to SAVINGS while
+                    // loading) could race a fast Save and silently overwrite the real type
+                    // of an account the user never meant to reclassify (#792 review).
+                    val newAccountType = when {
+                        !canReclassifyToLoan || isLoanAccount == originalIsLoanAccount -> null
+                        isLoanAccount -> AccountType.LOAN
+                        else -> priorAccountType
+                    }
                     onConfirm(bankNameText, balance, creditLimit, currencyText, newAccountType)
                 },
                 enabled = isValid
